@@ -11,7 +11,7 @@ from functools import wraps
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'cybereye-secret'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet', allow_eio3=True, ping_timeout=120, ping_interval=60)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent', allow_eio3=True, ping_timeout=60, ping_interval=25)
 
 # --- CONFIGURATION ---
 DB_FILE = 'database.json'
