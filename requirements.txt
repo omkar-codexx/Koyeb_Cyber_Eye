@@ -1,5 +1,7 @@
 flask
 flask-socketio
 eventlet
-requests
+gevent
+gevent-websocket
 gunicorn
+requests
