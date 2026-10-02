@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Maintenance — CyberEye</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --brand:       #2ECC8F;
+  --brand-glow:  rgba(46, 204, 143, 0.15);
+  --bg:          #07080B;
+  --surface:     #0F111A;
+  --border:      rgba(255, 255, 255, 0.04);
+  --text:        #EEF0F7;
+  --text-muted:  #8A94AD;
+  --radius:      16px;
+  --font-body:   'Inter', sans-serif;
+  --font-head:   'Plus Jakarta Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: var(--brand-glow);
+  border-radius: 50%;
+  filter: blur(80px);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
+
+.maintenance-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 50px 40px;
+  width: 450px;
+  max-width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  position: relative;
+  z-index: 1;
+}
+
+.icon-wrap {
+  width: 80px;
+  height: 80px;
+  background: var(--brand-glow);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 30px;
+}
+
+.icon-wrap i {
+  color: var(--brand);
+  font-size: 2.2rem;
+  animation: pulse 2s infinite ease-in-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+h1 {
+  font-family: var(--font-head);
+  font-size: 1.8rem;
+  color: white;
+  margin-bottom: 15px;
+}
+
+p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 35px;
+}
+
+.progress-bar-wrap {
+  height: 6px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 3px;
+  width: 100%;
+  margin-bottom: 40px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: var(--brand);
+  width: 65%;
+  border-radius: 3px;
+  animation: progress 3s infinite ease-in-out;
+}
+
+@keyframes progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(150%); }
+}
+
+.logo-text {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  color: white;
+}
+
+.logo-text span {
+  color: var(--brand);
+}
+</style>
+</head>
+<body>
+
+<div class="maintenance-card">
+  <div class="icon-wrap">
+    <i class="fas fa-screwdriver-wrench"></i>
+  </div>
+  <h1>System Under Maintenance</h1>
+  <p id="maintenance-msg">{{ message or "Scheduled updates are in progress. CyberEye console will be back online shortly." }}</p>
+  
+  <div class="progress-bar-wrap">
+    <div class="progress-bar-fill"></div>
+  </div>
+
+  <div class="logo-text" style="font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 1.25rem; letter-spacing: 0.05em; text-transform: uppercase; display: flex; align-items: center; justify-content: center; line-height: 1; gap: 0;">
+    <span style="background: linear-gradient(to bottom, #FFFFFF 0%, #9CA3AF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">CYBER</span><span style="background: linear-gradient(to bottom, #22D3EE 0%, #0891B2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-left: 0.25rem;">EYE</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socketio/4.7.2/socketio.min.js"></script>
+<script>
+  const socket = io();
+  socket.on('maintenance_end', () => {
+    window.location.reload();
+  });
+</script>
+
+</body>
+</html>

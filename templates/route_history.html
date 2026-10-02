@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Daily Route Log | CyberEye</title>
+
+  <!-- Google Fonts & Styling libraries -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Syne:wght@500;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Import local socket.io client to prevent CDN network block issues -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    /* Reset and Core Variables */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    :root {
+      --bg-dark: #070913;
+      --accent: #00f0ff;
+      --accent-rgb: 0, 240, 255;
+      --glass-bg: rgba(10, 12, 22, 0.55);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --font-main: 'Space Grotesk', sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-main);
+      background: #f0f2f5;
+    }
+
+    /* Map container */
+    #mapContainer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* UI Layer overlay */
+    .ui-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      padding: 16px;
+    }
+
+    /* Floating Left Control Panel - Matches Image 1 precisely */
+    .control-card {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      width: 250px;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      z-index: 11;
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 9.5px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: rgba(255, 255, 255, 0.4);
+      font-weight: 700;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 6px;
+    }
+
+    .tracker-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .tracker-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+    }
+
+    .tracker-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: #fff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tracker-desc {
+      font-size: 8.5px;
+      color: rgba(255, 255, 255, 0.35);
+    }
+
+    /* Toggle switch matching image styling */
+    .switch-custom {
+      position: relative;
+      display: inline-block;
+      width: 32px;
+      height: 18px;
+      flex-shrink: 0;
+    }
+
+    .switch-custom input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider-custom {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 18px;
+    }
+
+    .slider-custom:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #fff;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider-custom {
+      background-color: #fff;
+    }
+
+    input:checked + .slider-custom:before {
+      transform: translateX(14px);
+      background-color: #070913;
+    }
+
+    /* Toast Notification */
+    .toast-notification {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(10, 10, 30, 0.95);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 12px 20px;
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(15px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    
+    .toast-notification.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Map HUD Controls - Styled as a segmented control matching software screenshot */
+    .map-controls {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      background: rgba(241, 245, 249, 0.95);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      padding: 3px;
+      border-radius: 10px;
+      z-index: 100;
+      pointer-events: auto;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      gap: 2px;
+    }
+
+    .map-btn {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--font-main);
+      font-size: 11px;
+      font-weight: 700;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .map-btn:hover {
+      color: #0f172a;
+    }
+
+    .map-btn.active {
+      background: #1aa870;
+      color: #ffffff;
+      box-shadow: 0 2px 6px rgba(26, 168, 112, 0.3);
+    }
+
+    /* Ripple span effect style */
+    .ripple-span {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.08);
+      transform: scale(0);
+      animation: rippling 600ms ease-out;
+      pointer-events: none;
+    }
+
+    /* Active satellite green theme ripple span */
+    .map-btn.active .ripple-span {
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    @keyframes rippling {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(2.5);
+        opacity: 0;
+      }
+    }
+
+    /* Custom Numbered Marker Styles */
+    .custom-div-icon {
+      background: transparent;
+      border: none;
+    }
+    .marker-pin {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #2563eb;
+      border: 2px solid #ffffff;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease-in-out;
+    }
+    .marker-pin:hover {
+      transform: scale(1.2);
+    }
+
+    /* Smart Confirmation Modal */
+    #smart-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(7, 8, 11, 0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+      transition: all 0.25s ease;
+    }
+    #deleteRouteBtn {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #ff5f5f;
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: var(--font-main);
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: 100%;
+      transition: all 0.2s ease-in-out;
+      outline: none;
+    }
+    #deleteRouteBtn:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 2D Map -->
+  <div id="mapContainer"></div>
+
+  <!-- HUD Layer selector -->
+  <div class="map-controls">
+    <button class="map-btn" id="mapLayerSatellite">Satellite View</button>
+    <button class="map-btn active" id="mapLayerStreet">Street Map</button>
+  </div>
+
+  <!-- Main Floating Control Overlay -->
+  <div class="ui-overlay">
+    <div class="control-card">
+      <div class="panel-title">Route Summary Tracker</div>
+      
+      <!-- Lock tracking switch -->
+      <div class="tracker-row">
+        <div class="tracker-info">
+          <span class="tracker-label">Lock-Screen Tracking</span>
+          <span class="tracker-desc">Fetch location when device screen locks</span>
+        </div>
+        <label class="switch-custom">
+          <input type="checkbox" id="lockTrackToggle">
+          <span class="slider-custom"></span>
+        </label>
+      </div>
+
+      <!-- Show Route Numbers switch -->
+      <div class="tracker-row">
+        <div class="tracker-info">
+          <span class="tracker-label">Show Route Numbers</span>
+          <span class="tracker-desc">Display sequence numbers on path points</span>
+        </div>
+        <label class="switch-custom">
+          <input type="checkbox" id="showNumbersToggle">
+          <span class="slider-custom"></span>
+        </label>
+      </div>
+
+      <!-- Show Map Time switch -->
+      <div class="tracker-row">
+        <div class="tracker-info">
+          <span class="tracker-label">Show Map Time</span>
+          <span class="tracker-desc">Always display timestamp on points</span>
+        </div>
+        <label class="switch-custom">
+          <input type="checkbox" id="showTimeToggle">
+          <span class="slider-custom"></span>
+        </label>
+      </div>
+
+      <!-- Select Date Dropdown -->
+      <div class="tracker-row" style="margin-top: 6px;">
+        <div class="tracker-info">
+          <span class="tracker-label">Select Date</span>
+          <span class="tracker-desc">View log of a specific day</span>
+        </div>
+        <select id="routeDateSelect" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; padding: 4px 6px; font-family: var(--font-main); font-size: 11px; outline: none; width: 100px; cursor: pointer;">
+          <option value="today" style="background: #0a0c16; color: #fff;">Today</option>
+        </select>
+      </div>
+
+      <!-- Delete Button (Wrapped inside a row that starts hidden) -->
+      <div id="deleteRouteRow" style="display: none; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 8px;">
+        <button id="deleteRouteBtn">
+          Delete Selected Route
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart Confirmation Modal -->
+  <div id="smart-modal">
+    <div style="background: rgba(10, 12, 22, 0.98); border: 1.5px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 24px; width: 350px; max-width: 90%; box-shadow: 0 15px 45px rgba(0,0,0,0.8); text-align: center; transform: scale(0.9); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);" id="smart-modal-box">
+      <div id="smart-modal-icon" style="font-size: 2.2rem; color: #ef4444; margin-bottom: 16px;"><i class="fas fa-triangle-exclamation"></i></div>
+      <h3 id="smart-modal-title" style="color: white; font-size: 1.15rem; font-family: var(--font-main); font-weight: 700; margin-bottom: 10px;">Delete Route History</h3>
+      <p id="smart-modal-text" style="color: rgba(255,255,255,0.6); font-size: 0.85rem; font-family: var(--font-main); line-height: 1.5; margin-bottom: 24px;">Are you sure you want to permanently delete this route history?</p>
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button id="smart-modal-cancel" style="background: transparent; border: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); border-radius: 8px; padding: 8px 20px; font-family: var(--font-main); font-size: 11px; font-weight: 600; cursor: pointer; outline: none; transition: background 0.2s;" onclick="closeSmartModal()">Cancel</button>
+        <button id="smart-modal-confirm" style="background: #ef4444; border: none; color: #ffffff; border-radius: 8px; padding: 8px 20px; font-family: var(--font-main); font-size: 11px; font-weight: 700; cursor: pointer; outline: none; transition: background 0.2s; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);" onclick="confirmSmartModal()">Yes, Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast-notification">
+    <span id="toastMsg"></span>
+  </div>
+
+  <script>
+    // Toast notification
+    const toastEl = document.getElementById('toast');
+    const toastMsgEl = document.getElementById('toastMsg');
+    let toastTimeout = null;
+
+    function showToast(msg) {
+        if (!toastMsgEl || !toastEl) return;
+        toastMsgEl.innerText = msg;
+        toastEl.classList.add('visible');
+        if(toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toastEl.classList.remove('visible');
+        }, 3000);
+    }
+
+    // Leaflet map setup
+    let map = null;
+    let satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '&copy; Google'
+    });
+    // Standard default bright Google street map layer
+    let streetLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '&copy; Google'
+    });
+
+    function getURLParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id') || urlParams.get('device_id');
+    }
+    
+    const deviceId = getURLParams();
+
+    // Initialize Map safely
+    function initMap(lat, lng) {
+      if (!map) {
+        const container = document.getElementById('mapContainer');
+        if (!container) return;
+        
+        map = L.map('mapContainer', {
+          zoomControl: true, // Left top standard zoom control
+          layers: [streetLayer] // Load standard bright street map by default
+        }).setView([lat, lng], 13);
+      } else {
+        map.setView([lat, lng]);
+      }
+    }
+
+    // Ripple Effect function
+    function createRipple(event, button) {
+        const rect = button.getBoundingClientRect();
+        const size = Math.max(rect.width, rect.height);
+        const x = event.clientX - rect.left - size / 2;
+        const y = event.clientY - rect.top - size / 2;
+        
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple-span';
+        ripple.style.width = `${size}px`;
+        ripple.style.height = `${size}px`;
+        ripple.style.left = `${x}px`;
+        ripple.style.top = `${y}px`;
+        
+        ripple.addEventListener('animationend', () => {
+            ripple.remove();
+        });
+        
+        button.appendChild(ripple);
+    }
+
+    // Tracking states
+    let routeMarkers = [];
+    let routePolyline = null;
+    let globalTodayRoute = [];
+    let globalRouteHistory = [];
+    let isInitialFitDone = false;
+
+    // Initialize safely when DOM is fully ready
+    window.addEventListener('DOMContentLoaded', () => {
+        // Initialize map immediately to prevent white screens
+        initMap(20.5937, 78.9629);
+
+        // HUD Layer toggles
+        const mapLayerSatellite = document.getElementById('mapLayerSatellite');
+        const mapLayerStreet = document.getElementById('mapLayerStreet');
+
+        if (mapLayerSatellite) {
+            mapLayerSatellite.addEventListener('click', (e) => {
+              createRipple(e, mapLayerSatellite);
+              if (!map) return;
+              map.removeLayer(streetLayer);
+              satelliteLayer.addTo(map);
+              mapLayerSatellite.classList.add('active');
+              if (mapLayerStreet) mapLayerStreet.classList.remove('active');
+            });
+        }
+
+        if (mapLayerStreet) {
+            mapLayerStreet.addEventListener('click', (e) => {
+              createRipple(e, mapLayerStreet);
+              if (!map) return;
+              map.removeLayer(satelliteLayer);
+              streetLayer.addTo(map);
+              mapLayerStreet.classList.add('active');
+              if (mapLayerSatellite) mapLayerSatellite.classList.remove('active');
+            });
+        }
+
+        // Toggle screen-lock tracker
+        const lockTrackToggle = document.getElementById('lockTrackToggle');
+        if (lockTrackToggle) {
+            lockTrackToggle.addEventListener('change', async (e) => {
+                if (!deviceId) return;
+                const action = e.target.checked ? 'START_LOCK_TRACK' : 'STOP_LOCK_TRACK';
+                showToast(e.target.checked ? "Enabling Lock Tracker..." : "Disabling Lock Tracker...");
+                
+                try {
+                    const resp = await fetch(`/api/device/${deviceId}/action`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: action })
+                    });
+                    if (resp.ok) {
+                        showToast("Tracker state updated successfully!");
+                    } else {
+                        showToast("Failed to update tracker state.");
+                        e.target.checked = !e.target.checked;
+                    }
+                } catch(err) {
+                    console.error("Action error:", err);
+                    showToast("Connection error.");
+                    e.target.checked = !e.target.checked;
+                }
+            });
+        }
+
+        // Toggle route numbers display on change
+        const showNumbersToggle = document.getElementById('showNumbersToggle');
+        if (showNumbersToggle) {
+            showNumbersToggle.addEventListener('change', () => {
+                const dateSelect = document.getElementById('routeDateSelect');
+                if (dateSelect && dateSelect.value !== 'today') {
+                    const histItem = globalRouteHistory.find(h => h.date === dateSelect.value);
+                    renderRouteOnMap(histItem ? histItem.route : []);
+                } else {
+                    renderRouteOnMap(globalTodayRoute);
+                }
+            });
+        }
+
+        // Toggle map time display on change
+        const showTimeToggle = document.getElementById('showTimeToggle');
+        if (showTimeToggle) {
+            showTimeToggle.addEventListener('change', () => {
+                const dateSelect = document.getElementById('routeDateSelect');
+                if (dateSelect && dateSelect.value !== 'today') {
+                    const histItem = globalRouteHistory.find(h => h.date === dateSelect.value);
+                    renderRouteOnMap(histItem ? histItem.route : []);
+                } else {
+                    renderRouteOnMap(globalTodayRoute);
+                }
+            });
+        }
+
+        // Change displayed route when selecting a date
+        const routeDateSelect = document.getElementById('routeDateSelect');
+        const deleteRouteRow = document.getElementById('deleteRouteRow');
+        if (routeDateSelect) {
+            routeDateSelect.addEventListener('change', (e) => {
+                const val = e.target.value;
+                if (val === 'today') {
+                    if (deleteRouteRow) deleteRouteRow.style.display = 'none';
+                    renderRouteOnMap(globalTodayRoute);
+                } else {
+                    if (deleteRouteRow) deleteRouteRow.style.display = 'block';
+                    const histItem = globalRouteHistory.find(h => h.date === val);
+                    if (histItem) {
+                        renderRouteOnMap(histItem.route);
+                    } else {
+                        renderRouteOnMap([]);
+                    }
+                }
+            });
+        }
+
+        // Delete selected route
+        const deleteRouteBtn = document.getElementById('deleteRouteBtn');
+        if (deleteRouteBtn) {
+            deleteRouteBtn.addEventListener('click', () => {
+                const dateSelect = document.getElementById('routeDateSelect');
+                if (!dateSelect || !deviceId) return;
+                
+                const selectedDate = dateSelect.value;
+                if (selectedDate === 'today') {
+                    showToast("Cannot delete today's active route log.");
+                    return;
+                }
+                
+                smartConfirm(
+                    "Confirm Deletion",
+                    `Are you sure you want to permanently delete the route history for ${selectedDate}? This action cannot be undone.`,
+                    async () => {
+                        try {
+                            const resp = await fetch(`/api/device/${deviceId}/clear_route`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ date: selectedDate })
+                            });
+                            
+                            if (resp.ok) {
+                                showToast(`Successfully deleted route history for ${selectedDate}!`);
+                                // Reset map view
+                                renderRouteOnMap([]);
+                                // Reset date selector to today and hide delete row
+                                dateSelect.value = 'today';
+                                if (deleteRouteRow) deleteRouteRow.style.display = 'none';
+                                // Reload data to refresh options
+                                loadData();
+                            } else {
+                                showToast("Failed to delete route log.");
+                            }
+                        } catch (e) {
+                            console.error("Delete route error:", e);
+                            showToast("Error deleting route log.");
+                        }
+                    }
+                );
+            });
+        }
+
+        // Socket.io integration inside try-catch to prevent ReferenceError from breaking the page
+        try {
+            if (typeof io !== 'undefined') {
+                const socket = io();
+                
+                socket.on('connect', () => {
+                  if (deviceId) {
+                    socket.emit('join_device_room', { device_id: deviceId });
+                    console.log("[Socket.io] Joined device room:", deviceId);
+                  }
+                });
+
+                socket.on('location_update', (data) => {
+                  if (data.device_id === deviceId) {
+                    fetchAndDrawTodayRoute();
+                  }
+                });
+            } else {
+                console.warn("Socket.io library not loaded. Falling back to HTTP polling.");
+            }
+        } catch (socketErr) {
+            console.error("Socket initialization failed:", socketErr);
+        }
+
+        // Load data initially
+        loadData();
+
+        // Polling fallback to update the UI even if websockets fail/disconnect
+        setInterval(fetchAndDrawTodayRoute, 5000);
+    });
+
+    // Fetch and Draw active route
+    async function fetchAndDrawTodayRoute() {
+        if (!deviceId) return;
+        try {
+            const resp = await fetch(`/api/device/${deviceId}/data`);
+            if (resp.ok) {
+                const data = await resp.json();
+                globalTodayRoute = data.today_route || [];
+                globalRouteHistory = data.route_history || [];
+                
+                // Only update map automatically if "Today" is currently selected
+                const dateSelect = document.getElementById('routeDateSelect');
+                if (dateSelect && dateSelect.value === 'today') {
+                    renderRouteOnMap(globalTodayRoute);
+                }
+            }
+        } catch(e) {
+            console.error("Error drawing today active route:", e);
+        }
+    }
+
+    function renderRouteOnMap(routePoints) {
+        if (!map) return;
+        
+        // Remove existing markers & lines
+        routeMarkers.forEach(m => map.removeLayer(m));
+        routeMarkers = [];
+        if (routePolyline) {
+            map.removeLayer(routePolyline);
+            routePolyline = null;
+        }
+        
+        if (!routePoints || routePoints.length === 0) return;
+        
+        // 1. Draw the complete path polyline using all points
+        const latlngs = routePoints.map(pt => [pt.lat, pt.lng]);
+        
+        // 2. Filter points to avoid overlapping/stationary markers (more than ~11 meters drift)
+        const filteredPoints = [];
+        routePoints.forEach((pt, idx) => {
+            if (idx === 0) {
+                filteredPoints.push(pt);
+            } else if (idx === routePoints.length - 1) {
+                const prev = filteredPoints[filteredPoints.length - 1];
+                if (pt.lat !== prev.lat || pt.lng !== prev.lng) {
+                    filteredPoints.push(pt);
+                }
+            } else {
+                const prev = filteredPoints[filteredPoints.length - 1];
+                const latDiff = Math.abs(pt.lat - prev.lat);
+                const lngDiff = Math.abs(pt.lng - prev.lng);
+                if (latDiff > 0.0001 || lngDiff > 0.0001) {
+                    filteredPoints.push(pt);
+                }
+            }
+        });
+
+        const showNumbers = document.getElementById('showNumbersToggle')?.checked || false;
+        const showTime = document.getElementById('showTimeToggle')?.checked || false;
+        
+        if (showNumbers) {
+            // 3. Render numbered markers sequentially for filtered points
+            filteredPoints.forEach((pt, index) => {
+                const pos = [pt.lat, pt.lng];
+                
+                const d = new Date(pt.time);
+                const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                let color = '#2563eb'; // Sleek dark blue
+                let label = `Time: ${timeStr}`;
+                if (index === 0) {
+                    color = '#10b981'; // Green start marker
+                    label = `Start - Time: ${timeStr}`;
+                } else if (index === filteredPoints.length - 1) {
+                    color = '#ef4444'; // Red end marker
+                    label = `Latest - Time: ${timeStr}`;
+                }
+                
+                // Custom numbered circle icon using L.divIcon
+                const numIcon = L.divIcon({
+                    className: 'custom-div-icon',
+                    html: `<div class="marker-pin" style="background-color: ${color};">${index + 1}</div>`,
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                });
+                
+                const dotMarker = L.marker(pos, {
+                    icon: numIcon
+                }).addTo(map);
+                
+                dotMarker.bindTooltip(label, { permanent: showTime, direction: 'top' });
+                routeMarkers.push(dotMarker);
+            });
+        } else {
+            // Render original simple circle markers for filtered points
+            filteredPoints.forEach((pt, index) => {
+                const pos = [pt.lat, pt.lng];
+                
+                const d = new Date(pt.time);
+                const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                
+                let color = '#2563eb'; // Sleek dark blue
+                let label = `Time: ${timeStr}`;
+                if (index === 0) {
+                    color = '#10b981'; // Green start marker
+                    label = `Start - Time: ${timeStr}`;
+                } else if (index === filteredPoints.length - 1) {
+                    color = '#ef4444'; // Red end marker
+                    label = `Latest - Time: ${timeStr}`;
+                }
+                
+                // Standard small circle marker
+                const dotMarker = L.circleMarker(pos, {
+                    radius: 5,
+                    color: '#ffffff', // White outline
+                    fillColor: color,
+                    fillOpacity: 0.9,
+                    weight: 1.5
+                }).addTo(map);
+                
+                dotMarker.bindTooltip(label, { permanent: showTime, direction: 'top' });
+                routeMarkers.push(dotMarker);
+            });
+        }
+        
+        // Thin black dotted path line (Matches Image 3)
+        routePolyline = L.polyline(latlngs, {
+            color: '#181c26',
+            weight: 2,
+            opacity: 0.8,
+            dashArray: '5, 5',
+            lineJoin: 'round'
+        }).addTo(map);
+        
+        if (latlngs.length > 0 && !isInitialFitDone) {
+            map.fitBounds(L.polyline(latlngs).getBounds(), { padding: [50, 50] });
+            isInitialFitDone = true;
+        }
+    }
+
+    // Initial setup loading
+    async function loadData() {
+        if (!deviceId) return;
+        try {
+            const resp = await fetch(`/api/device/${deviceId}/data`);
+            if (resp.ok) {
+                const data = await resp.json();
+                
+                // Set lock tracker toggle state (Check settings and info block)
+                const settings = data.settings || {};
+                const info = data.info || {};
+                const isEnabled = (settings.lock_track_enabled === true) || (info.lock_track_enabled === "true");
+                const lockTrackToggle = document.getElementById('lockTrackToggle');
+                if (lockTrackToggle) lockTrackToggle.checked = isEnabled;
+                
+                globalTodayRoute = data.today_route || [];
+                globalRouteHistory = data.route_history || [];
+                
+                // Populate Route History dropdown select
+                const dateSelect = document.getElementById('routeDateSelect');
+                if (dateSelect) {
+                    const currentSelected = dateSelect.value;
+                    
+                    // Reset options to only "Today"
+                    dateSelect.innerHTML = '<option value="today" style="background: #0a0c16; color: #fff;">Today</option>';
+                    
+                    // Add history dates
+                    globalRouteHistory.forEach(item => {
+                        const opt = document.createElement('option');
+                        opt.value = item.date;
+                        opt.textContent = item.date;
+                        opt.style.background = "#0a0c16";
+                        opt.style.color = "#fff";
+                        dateSelect.appendChild(opt);
+                    });
+                    
+                    // Re-apply selection if it still exists
+                    const exists = Array.from(dateSelect.options).some(o => o.value === currentSelected);
+                    if (exists) {
+                        dateSelect.value = currentSelected;
+                    } else {
+                        dateSelect.value = 'today';
+                    }
+                }
+                
+                let mapCenter = [20.5937, 78.9629];
+                
+                // Determine map center based on active selection
+                let activeRoute = globalTodayRoute;
+                if (dateSelect && dateSelect.value !== 'today') {
+                    const histItem = globalRouteHistory.find(h => h.date === dateSelect.value);
+                    if (histItem) activeRoute = histItem.route;
+                }
+                
+                if (activeRoute.length > 0) {
+                    const lastPt = activeRoute[activeRoute.length - 1];
+                    mapCenter = [lastPt.lat, lastPt.lng];
+                } else if (data.location && data.location.lat && data.location.lng) {
+                    mapCenter = [data.location.lat, data.location.lng];
+                }
+                
+                // Set map center once data arrives
+                map.setView(mapCenter, 13);
+                
+                if (activeRoute.length > 0) {
+                    renderRouteOnMap(activeRoute);
+                }
+            }
+        } catch(e) {
+            console.error("Error loading daily route setup:", e);
+        }
+    }
+
+    // Custom Smart Modal Confirmation Functions
+    let smartModalConfirmCallback = null;
+
+    function smartConfirm(title, text, onConfirm) {
+        const modal = document.getElementById("smart-modal");
+        const modalBox = document.getElementById("smart-modal-box");
+        const titleEl = document.getElementById("smart-modal-title");
+        const textEl = document.getElementById("smart-modal-text");
+        
+        if (!modal || !modalBox || !titleEl || !textEl) return;
+        
+        titleEl.textContent = title;
+        textEl.textContent = text;
+        
+        smartModalConfirmCallback = () => {
+            closeSmartModal();
+            if (onConfirm) onConfirm();
+        };
+        
+        modal.style.display = "flex";
+        setTimeout(() => {
+            modalBox.style.transform = "scale(1)";
+        }, 10);
+    }
+
+    function closeSmartModal() {
+        const modal = document.getElementById("smart-modal");
+        const modalBox = document.getElementById("smart-modal-box");
+        if (!modal || !modalBox) return;
+        
+        modalBox.style.transform = "scale(0.9)";
+        setTimeout(() => {
+            modal.style.display = "none";
+        }, 150);
+    }
+
+    function confirmSmartModal() {
+        if (smartModalConfirmCallback) {
+            smartModalConfirmCallback();
+        }
+    }
+  </script>
+</body>
+</html>

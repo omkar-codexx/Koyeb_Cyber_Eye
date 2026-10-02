@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberEye — Secure C2 Gateway Login</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@600;700;800&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --brand:       #2ECC8F;
+  --brand-dark:  #1aa870;
+  --brand-soft:  rgba(46, 204, 143, 0.08);
+  --brand-glow:  rgba(46, 204, 143, 0.2);
+  --accent:      #5B8BF5;
+  --bg:          #07080B;
+  --surface:     #0F111A;
+  --surface2:    #151824;
+  --surface3:    #1F2333;
+  --border:      rgba(255, 255, 255, 0.04);
+  --border2:     rgba(255, 255, 255, 0.08);
+  --text:        #EEF0F7;
+  --text-muted:  #8A94AD;
+  --text-dark:   #525A70;
+  --radius:      16px;
+  --radius-sm:   10px;
+  --radius-xs:   6px;
+  --font-body:   'Inter', sans-serif;
+  --font-head:   'Plus Jakarta Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* ── NEON BACKGROUND ORBS ── */
+body::before, body::after {
+  content: '';
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+  z-index: 0;
+  pointer-events: none;
+}
+body::before {
+  top: 10%;
+  left: 15%;
+  background: var(--brand);
+}
+body::after {
+  bottom: 10%;
+  right: 15%;
+  background: var(--accent);
+}
+
+#login-screen {
+  display: flex;
+  width: 960px;
+  height: 600px;
+  background: rgba(16, 18, 26, 0.8);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  z-index: 5;
+  position: relative;
+}
+
+.login-left {
+  flex: 1.25;
+  background: #090A0E;
+  padding: 60px;
+  display: flex;
+  flex-direction: column;
+  color: white;
+  position: relative;
+  border-right: 1px solid var(--border);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(46, 204, 143, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(91, 139, 245, 0.03) 0px, transparent 50%);
+}
+
+.logo-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+  z-index: 1;
+}
+
+.brand-label {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem; /* text-2xl */
+  text-transform: uppercase;
+  letter-spacing: 0.05em; /* tracking-wider */
+  display: flex;
+  align-items: center;
+  line-height: 1; /* leading-none */
+  gap: 0;
+}
+.brand-text-white {
+  background: linear-gradient(to bottom, #FFFFFF 0%, #9CA3AF 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.brand-text-accent {
+  background: linear-gradient(to bottom, #22D3EE 0%, #0891B2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-left: 0.25rem; /* ml-1 */
+}
+.brand-subtext {
+  font-size: 10px;
+  line-height: 1.25;
+  margin-top: 8px;
+  color: #98a7bd;
+  text-transform: none;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+
+.gateway-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 24px;
+  width: fit-content;
+  border: 1px solid rgba(46, 204, 143, 0.12);
+  z-index: 1;
+}
+
+.login-left h1 {
+  font-family: var(--font-head);
+  font-size: 2.1rem;
+  margin-bottom: 16px;
+  z-index: 1;
+  font-weight: 800;
+  line-height: 1.2;
+  color: white;
+  letter-spacing: -0.5px;
+}
+.login-left p {
+  color: var(--text-muted);
+  line-height: 1.6;
+  z-index: 1;
+  font-size: 0.92rem;
+  max-width: 360px;
+  margin-bottom: 30px;
+}
+
+.features {
+  margin-top: auto;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.f-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.f-item i {
+  color: var(--brand);
+  font-size: 1rem;
+  background: var(--brand-soft);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(46, 204, 143, 0.15);
+}
+
+.login-right {
+  flex: 1;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--surface);
+  position: relative;
+}
+
+.login-right h2 {
+  color: white;
+  font-family: var(--font-head);
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  font-weight: 700;
+}
+.login-right p.subtitle {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-bottom: 28px;
+}
+
+.field-group {
+  margin-bottom: 16px;
+}
+.field-group label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.field-group input {
+  width: 100%;
+  padding: 11px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  color: white;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  transition: all 0.25s ease;
+}
+.field-group input:focus {
+  border-color: var(--brand);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-soft);
+  background: var(--surface3);
+}
+
+.btn-login {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  border: none;
+  border-radius: var(--radius-xs);
+  color: #07080B;
+  font-weight: 700;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+.btn-login:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.25);
+  filter: brightness(1.08);
+}
+.btn-login:active {
+  transform: translateY(0);
+}
+.btn-login:disabled {
+  background: var(--surface3);
+  color: var(--text-dark);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-back-outline {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+.btn-back-outline:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: white;
+  border-color: var(--text-muted);
+}
+
+.login-error {
+  color: var(--danger);
+  background: var(--danger-soft);
+  border: 1px solid rgba(255, 77, 77, 0.15);
+  padding: 10px 14px;
+  border-radius: var(--radius-xs);
+  font-size: 0.82rem;
+  margin-bottom: 18px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.spin {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(8, 9, 12, 0.25);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  animation: spin 0.6s linear infinite;
+  display: none;
+}
+.btn-back-outline .spin {
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: currentColor;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.hidden { display: none !important; }
+
+@media (max-width: 980px) {
+  #login-screen {
+    width: 90%;
+    height: auto;
+    flex-direction: column;
+  }
+  .login-left {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding: 40px;
+  }
+  .login-right {
+    padding: 40px;
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-left">
+    <div class="logo-wrap" style="margin-bottom: 30px;">
+      <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 2px;">
+        <div class="brand-label" style="font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 1.6rem; letter-spacing: 0.05em; text-transform: uppercase; display: flex; align-items: center; line-height: 1; gap: 0;">
+          <span style="background: linear-gradient(to bottom, #FFFFFF 0%, #9CA3AF 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">CYBER</span><span style="background: linear-gradient(to bottom, #22D3EE 0%, #0891B2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-left: 0.25rem;">EYE</span>
+        </div>
+        <p class="brand-subtext" style="font-size: 10px; margin-top: 4px; color: #98a7bd; font-weight: 600; letter-spacing: 0.5px;">
+          See More. Know More.
+        </p>
+      </div>
+    </div>
+    
+    <div class="gateway-badge">
+      <i class="fas fa-shield-halved"></i> HARDENED GATEWAY v1.60
+    </div>
+    
+    <h1>Secure Command & Control Portal</h1>
+    <p>Establish a secure session connection to monitor and configure active telemetry nodes across the network shell.</p>
+
+    <div class="features">
+      <div class="f-item"><i class="fas fa-key"></i> <span>AES-256 Symmetric Session Encryption</span></div>
+      <div class="f-item"><i class="fas fa-network-wired"></i> <span>Real-time Secure Socket Telemetry Relay</span></div>
+      <div class="f-item"><i class="fas fa-microchip"></i> <span>Authorized Hardware Binding Lock</span></div>
+    </div>
+  </div>
+
+  <div class="login-right">
+    <!-- Step 1: Credentials Input -->
+    <div id="credentials-step">
+      <h2>Welcome Back</h2>
+      <p class="subtitle">Log in to enter your control console</p>
+
+      <div class="login-error" id="login-err">
+        <i class="fas fa-circle-exclamation"></i> <span id="login-err-msg"></span>
+      </div>
+
+      <div class="field-group">
+        <label>User ID (Username)</label>
+        <input type="text" id="username" placeholder="Enter username" required>
+      </div>
+
+      <div class="field-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="Enter your password" required>
+      </div>
+
+      <div class="field-group">
+        <label>License Key (Optional for Admin)</label>
+        <input type="text" id="license_key" placeholder="CYBER-XXXX-XXXX-XXXX">
+      </div>
+
+      <button class="btn-login" id="btn-submit-login" onclick="performLogin()">
+        <span>Verify & Enter Console</span> <div class="spin" id="spin-login"></div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+async function performLogin() {
+  const username = document.getElementById("username").value.trim();
+  const password = document.getElementById("password").value.trim();
+  const license_key = document.getElementById("license_key").value.trim();
+  const errBox = document.getElementById("login-err");
+  const spin = document.getElementById("spin-login");
+  const btn = document.getElementById("btn-submit-login");
+
+  if (!username || !password) {
+    showError(errBox, "Username and Password are required.");
+    return;
+  }
+
+  errBox.style.display = "none";
+  spin.style.display = "inline-block";
+  btn.disabled = true;
+
+  try {
+    const resp = await fetch(window.location.pathname, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, password, license_key })
+    });
+    const result = await resp.json();
+    if (result.success) {
+      if (result.is_admin && result.redirect) {
+        window.location.href = result.redirect;
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } else {
+      showError(errBox, result.error || "Login verification failed.");
+    }
+  } catch (e) {
+    showError(errBox, "Connection error. Please check server status.");
+  } finally {
+    spin.style.display = "none";
+    btn.disabled = false;
+  }
+}
+
+function showError(el, msg) {
+  el.querySelector("span").textContent = msg;
+  el.style.display = "flex";
+}
+</script>
+
+</body>
+</html>

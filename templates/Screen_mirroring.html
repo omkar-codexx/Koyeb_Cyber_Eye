@@ -1,0 +1,1522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYBEREYE — Remote Mirroring & Control Node</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        :root {
+            --brand: #2ECC8F;
+            --bg: #050507;
+            --card: #0d0d0f;
+            --border: #1f1f23;
+            --accent: #22d3ee;
+            --danger: #ef4444;
+            --btn-bg: #161618;
+            --silver: #a1a1aa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 330px 1fr;
+            gap: 36px;
+            padding: 20px;
+            max-width: 1480px;
+            width: 100%;
+            height: 98vh;
+            align-items: center;
+        }
+
+        /* ── SIDEBAR ── */
+        .controls-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 25px;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.6rem;
+            letter-spacing: 3px;
+        }
+        .logo .white { background: linear-gradient(#fff, #9ca3af); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .logo .cyan { background: linear-gradient(#22d3ee, #0891b2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-left: 4px; }
+
+        .section-label {
+            font-size: 9px;
+            color: #52525b;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-family: inherit;
+            font-size: 12px;
+            text-transform: uppercase;
+            position: relative;
+        }
+
+        .btn-start { background: var(--btn-bg); color: #fff; }
+        .btn-start:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); box-shadow: 0 0 12px rgba(46,204,143,0.2); }
+
+        .btn-stop { background: var(--btn-bg); color: #fff; }
+        .btn-stop:hover:not(:disabled) { border-color: var(--danger); color: var(--danger); box-shadow: 0 0 12px rgba(239,68,68,0.2); }
+
+        .btn-control {
+            background: var(--btn-bg);
+            color: #fff;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+        }
+        .btn-control:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-control.active {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--accent);
+            color: #fff;
+            box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+        }
+        .btn-control.active #control-state-text {
+            color: var(--accent) !important;
+            font-weight: 800;
+            text-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
+        }
+        .btn-control.active-skeleton {
+            background: rgba(46, 204, 143, 0.12);
+            border-color: var(--brand);
+            color: #fff;
+            box-shadow: 0 0 16px rgba(46, 204, 143, 0.3);
+        }
+        .btn-control.active-skeleton #skeleton-state-text {
+            color: var(--brand) !important;
+            font-weight: 800;
+            text-shadow: 0 0 8px rgba(46, 204, 143, 0.6);
+        }
+
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .custom-select {
+            width: 100%;
+            background: var(--btn-bg);
+            border: 1px solid var(--border);
+            color: #eee;
+            padding: 10px;
+            border-radius: 8px;
+            outline: none;
+            font-weight: 600;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .custom-select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── PHONE STAGE ── */
+        .mirror-stage {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            height: 100%;
+            width: 100%;
+            gap: 26px;
+        }
+
+        /* Left Side: Lock Controls */
+        .lock-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .lock-btn {
+            width: 52px;
+            height: 52px;
+            background: #111;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.2s;
+            position: relative;
+            color: #52525b;
+        }
+        .lock-btn:hover { border-color: var(--brand); color: var(--brand); transform: translateX(-4px); box-shadow: 0 0 12px rgba(46,204,143,0.3); }
+        .lock-btn:active { transform: scale(0.92); }
+        .lock-btn i { font-size: 17px; }
+        .lock-btn .tooltip {
+            position: absolute;
+            right: 100%;
+            margin-right: 14px;
+            background: #000;
+            color: var(--brand);
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 9px;
+            font-weight: 800;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            border: 1px solid var(--brand);
+            transition: 0.2s;
+            z-index: 100;
+        }
+        .lock-btn:hover .tooltip { opacity: 1; }
+
+        /* Middle: Phone Mockup Frame */
+        .phone-frame {
+            width: 380px;
+            height: 800px;
+            background: #000;
+            border-radius: 54px;
+            padding: 10px;
+            position: relative;
+            box-shadow:
+                0 0 0 2px #222,
+                0 0 0 8px #0a0a0c,
+                0 40px 100px rgba(0,0,0,0.9);
+        }
+
+        /* Hardware Buttons (Clickable & Responsive) */
+        .frame-btn {
+            position: absolute;
+            background: #c0c0c0;
+            border-radius: 2px;
+            width: 5px;
+            z-index: 10;
+            box-shadow: 0 0 5px rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .frame-btn:hover {
+            background: #22d3ee;
+            box-shadow: 0 0 10px #22d3ee;
+        }
+        .frame-btn:active {
+            transform: scale(0.85);
+        }
+        .btn-vol-up { top: 120px; right: -12px; height: 50px; }
+        .btn-vol-down { top: 185px; right: -12px; height: 50px; }
+        .btn-power { top: 150px; left: -12px; height: 60px; }
+
+        .phone-frame::before {
+            content: '';
+            position: absolute;
+            top: 22px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 6px;
+            background: #151518;
+            border-radius: 10px;
+            z-index: 20;
+        }
+
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 44px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #111;
+            position: relative;
+        }
+
+        .mirror-content {
+            flex: 1;
+            width: 100%;
+            position: relative;
+            background: #000;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+
+        .mirror-content.control-active {
+            cursor: crosshair;
+        }
+
+        .control-badge {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(5, 5, 7, 0.85);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 1px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            z-index: 40;
+            box-shadow: 0 0 14px rgba(34, 211, 238, 0.4);
+            pointer-events: none;
+            animation: pulse-glow 2s infinite ease-in-out;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.85; transform: translateX(-50%) scale(1); }
+            50% { opacity: 1; transform: translateX(-50%) scale(1.05); }
+        }
+
+        .mirror-img {
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            display: block;
+            pointer-events: auto;
+        }
+
+        /* Touch Ripple Effect */
+        .touch-ripple {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(34, 211, 238, 0.9) 0%, rgba(46, 204, 143, 0.4) 60%, transparent 100%);
+            border: 2px solid var(--accent);
+            transform: translate(-50%, -50%) scale(0.2);
+            animation: touch-ripple-anim 0.45s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+            pointer-events: none;
+            z-index: 60;
+            box-shadow: 0 0 16px var(--accent);
+        }
+        .touch-ripple.long-press {
+            background: radial-gradient(circle, rgba(245, 158, 11, 0.95) 0%, rgba(239, 68, 68, 0.5) 60%, transparent 100%);
+            border: 2px solid #f59e0b;
+            box-shadow: 0 0 22px #f59e0b;
+            animation: touch-ripple-long-anim 0.75s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+        }
+        @keyframes touch-ripple-anim {
+            0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.85; }
+            100% { transform: translate(-50%, -50%) scale(2.0); opacity: 0; }
+        }
+        @keyframes touch-ripple-long-anim {
+            0% { transform: translate(-50%, -50%) scale(0.2); opacity: 1; }
+            50% { transform: translate(-50%, -50%) scale(1.6); opacity: 0.95; }
+            100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+        }
+
+        .android-nav {
+            height: 44px;
+            background: #000;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: 2px;
+            border-top: 1px solid #16161a;
+            z-index: 30;
+        }
+
+        .nav-key {
+            width: 48px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #71717a;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            border-radius: 12px;
+        }
+        .nav-key:hover {
+            color: #fff;
+            background: rgba(255,255,255,0.06);
+            transform: scale(1.1);
+        }
+        .nav-key.pressed {
+            color: var(--brand) !important;
+            background: rgba(46, 204, 143, 0.18) !important;
+            transform: scale(0.88);
+            box-shadow: 0 0 10px rgba(46, 204, 143, 0.4);
+        }
+        .nav-key i { font-size: 15px; }
+
+        .placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #050507;
+            z-index: 5;
+            color: #333;
+            gap: 12px;
+        }
+        .placeholder span { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: #444; }
+
+        /* ── RIGHT SIDE: ARROW NAVIGATION & D-PAD PANEL ── */
+        .side-nav-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 20px 16px;
+            backdrop-filter: blur(10px);
+            width: 216px;
+            align-items: center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+
+        .side-nav-header {
+            font-size: 10px;
+            color: #8e8e93;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1.4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: 100%;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 10px;
+        }
+        .side-nav-header i { color: var(--accent); font-size: 12px; }
+
+        /* D-PAD DIRECTIONAL CONTROLLER */
+        .dpad-container {
+            position: relative;
+            width: 154px;
+            height: 154px;
+            display: grid;
+            grid-template-columns: repeat(3, 46px);
+            grid-template-rows: repeat(3, 46px);
+            gap: 6px;
+            justify-content: center;
+            align-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            padding: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.9), 0 0 16px rgba(0, 0, 0, 0.6);
+        }
+
+        .dpad-btn {
+            background: #141418;
+            border: 1px solid var(--border);
+            color: #a1a1aa;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-size: 15px;
+            position: relative;
+            outline: none;
+        }
+        .dpad-btn:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+            background: rgba(34, 211, 238, 0.12);
+            box-shadow: 0 0 14px rgba(34, 211, 238, 0.35);
+            transform: scale(1.06);
+        }
+        .dpad-btn:active, .dpad-btn.pressed {
+            color: #000 !important;
+            background: var(--accent) !important;
+            box-shadow: 0 0 20px var(--accent) !important;
+            transform: scale(0.92);
+        }
+
+        .dpad-up {
+            grid-column: 2;
+            grid-row: 1;
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+        }
+        .dpad-left {
+            grid-column: 1;
+            grid-row: 2;
+            border-top-left-radius: 20px;
+            border-bottom-left-radius: 20px;
+        }
+        .dpad-center {
+            grid-column: 2;
+            grid-row: 2;
+            border-radius: 50%;
+            background: #19191e;
+            border-color: rgba(34, 211, 238, 0.3);
+            color: var(--accent);
+            font-size: 13px;
+        }
+        .dpad-center:hover {
+            border-color: var(--brand);
+            color: var(--brand);
+            background: rgba(46, 204, 143, 0.18);
+            box-shadow: 0 0 14px rgba(46, 204, 143, 0.45);
+        }
+        .dpad-center:active, .dpad-center.pressed {
+            color: #000 !important;
+            background: var(--brand) !important;
+            box-shadow: 0 0 20px var(--brand) !important;
+        }
+        .dpad-right {
+            grid-column: 3;
+            grid-row: 2;
+            border-top-right-radius: 20px;
+            border-bottom-right-radius: 20px;
+        }
+        .dpad-down {
+            grid-column: 2;
+            grid-row: 3;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+        }
+
+        /* QUICK SCROLL & ACTIONS GRID */
+        .quick-nav-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .quick-nav-btn {
+            background: var(--btn-bg);
+            border: 1px solid var(--border);
+            color: #d4d4d8;
+            border-radius: 10px;
+            padding: 9px 6px;
+            font-size: 9px;
+            font-weight: 700;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-family: inherit;
+        }
+        .quick-nav-btn i { font-size: 13px; color: var(--accent); transition: 0.2s; }
+        .quick-nav-btn:hover {
+            border-color: var(--brand);
+            color: #fff;
+            background: rgba(46, 204, 143, 0.08);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(46, 204, 143, 0.2);
+        }
+        .quick-nav-btn:hover i { color: var(--brand); transform: scale(1.15); }
+        .quick-nav-btn:active, .quick-nav-btn.pressed {
+            transform: scale(0.95);
+            background: rgba(46, 204, 143, 0.25);
+            border-color: var(--brand);
+        }
+
+        .keyboard-hint {
+            font-size: 9px;
+            color: #71717a;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: 600;
+            letter-spacing: 0.4px;
+            padding-top: 4px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            width: 100%;
+            justify-content: center;
+        }
+        .keyboard-hint kbd {
+            background: #18181b;
+            border: 1px solid #27272a;
+            border-radius: 4px;
+            padding: 1px 4px;
+            color: #a1a1aa;
+            font-family: monospace;
+            font-size: 9px;
+        }
+
+        .status-footer {
+            font-size: 10px;
+            color: #52525b;
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        /* SMART TOAST POPUP */
+        #smart-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #111;
+            border-left: 4px solid var(--brand);
+            padding: 15px 25px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            transform: translateX(200%);
+            transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 9999;
+        }
+        #smart-toast.show { transform: translateX(0); }
+        #smart-toast i { color: var(--brand); font-size: 18px; }
+        #smart-toast span { font-size: 13px; font-weight: 600; color: #eee; }
+
+        /* IDLE WATCHDOG BADGE */
+        .idle-alert-badge {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(185, 28, 28, 0.95));
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 10px 30px rgba(239, 68, 68, 0.4), 0 0 20px rgba(239, 68, 68, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            backdrop-filter: blur(8px);
+        }
+        .idle-alert-badge.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .idle-alert-badge .idle-count {
+            background: #ffffff;
+            color: #b91c1c;
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-weight: 800;
+            font-family: monospace;
+        }
+        .idle-alert-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            color: #ffffff;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: 0.2s;
+        }
+        .idle-alert-btn:hover {
+            background: #ffffff;
+            color: #b91c1c;
+        }
+
+        .live-dot { width: 6px; height: 6px; background: var(--danger); border-radius: 50%; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    </style>
+</head>
+<body>
+
+    <div id="smart-toast">
+        <i class="fas fa-circle-check"></i>
+        <span id="toast-msg">Command Execution Success</span>
+    </div>
+
+    <div id="idle-alert" class="idle-alert-badge">
+        <i class="fas fa-triangle-exclamation"></i>
+        <span>Inactivity Warning: Mirror feed stopping in <span id="idle-countdown" class="idle-count">15</span>s</span>
+        <button class="idle-alert-btn" onclick="resetUserActivity()">I'm Watching</button>
+    </div>
+
+    <div class="layout">
+        <div class="controls-panel">
+            <div class="logo"><span class="white">CYBER</span><span class="cyan">EYE</span></div>
+
+            <div style="display:flex; flex-direction:column; gap:16px; margin-top:5px;">
+                <div>
+                    <span class="section-label">Interactive Control</span>
+                    <button class="btn btn-control" id="control-btn" onclick="toggleControl()" style="margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-hand-pointer"></i>
+                            <span>TOUCH CONTROL</span>
+                        </div>
+                        <span id="control-state-text" style="font-size:10px; color:var(--silver);">OFF</span>
+                    </button>
+                    <button class="btn btn-control" id="skeleton-btn" onclick="toggleSkeletonView()">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <i class="fas fa-cubes-stacked"></i>
+                            <span>SKELETON VIEW</span>
+                        </div>
+                        <span id="skeleton-state-text" style="font-size:10px; color:var(--silver);">OFF</span>
+                    </button>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-top:6px; padding:6px 10px; background:rgba(0,0,0,0.4); border-radius:8px; border:1px solid var(--border);">
+                        <span style="font-size:10px; font-weight:700; color:#aaa;">BLUEPRINT MODE</span>
+                        <input type="checkbox" id="blueprint-toggle" onchange="toggleBlueprintMode(this.checked)" style="cursor:pointer; accent-color:var(--brand);">
+                    </div>
+                </div>
+
+                <div>
+                    <span class="section-label">Mirror Speed (Delay)</span>
+                    <select class="custom-select" id="fps-val">
+                        <option value="50" selected>50ms (Smooth Fast)</option>
+                        <option value="100">100ms (Ultra-Fast)</option>
+                        <option value="300">300ms (Hyper-Fast)</option>
+                        <option value="500">500ms (Default)</option>
+                        <option value="1000">1s (Economy)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <span class="section-label">Stream Quality</span>
+                    <select class="custom-select" id="quality-val">
+                        <option value="10" selected>10% - FAST (No Lag)</option>
+                        <option value="15">15% - BALANCED</option>
+                        <option value="20">20% - MINIMAL</option>
+                        <option value="40">40% - STANDARD</option>
+                        <option value="60">60% - HIGH</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-start" id="start-btn"><i class="fas fa-play"></i> START LIVE SCREEN</button>
+                <button class="btn btn-stop" id="stop-btn" disabled><i class="fas fa-stop"></i> STOP SCREEN</button>
+            </div>
+
+            <div class="status-footer">
+                <i class="fas fa-microchip"></i> <span id="node-status-text">Node standby</span>
+            </div>
+        </div>
+
+        <div class="mirror-stage">
+            <!-- Left Side: Screen Lock & Privacy Controls -->
+            <div class="lock-controls">
+                <div class="lock-btn" onclick="sendAction('LOCK_SCREEN')" title="Soft Lock Screen">
+                    <span class="tooltip">SOFT LOCK</span>
+                    <i class="fas fa-lock"></i>
+                </div>
+                <div class="lock-btn" onclick="sendAction('FORCE_LOCK')" title="Device Admin Lock">
+                    <span class="tooltip">ADMIN LOCK</span>
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div class="lock-btn" onclick="sendAction('BLOCK_SCREEN')" style="color:#ff4757; border-color: rgba(255, 71, 87, 0.4);" title="Block Screen (Accessibility Black Overlay)">
+                    <span class="tooltip">BLACK SCREEN</span>
+                    <i class="fas fa-eye-slash"></i>
+                </div>
+                <div class="lock-btn" onclick="sendAction('UNBLOCK_SCREEN')" style="color:#2ecc71; border-color: rgba(46, 204, 113, 0.4);" title="Unblock Screen">
+                    <span class="tooltip">UNBLOCK SCREEN</span>
+                    <i class="fas fa-eye"></i>
+                </div>
+            </div>
+
+            <!-- Middle: Phone Mockup Frame -->
+            <div class="phone-frame">
+                <!-- SILVER Hardware Buttons -->
+                <div class="frame-btn btn-vol-up" title="Volume Up" onclick="sendAction('VOL_UP')"></div>
+                <div class="frame-btn btn-vol-down" title="Volume Down" onclick="sendAction('VOL_DOWN')"></div>
+                <div class="frame-btn btn-power" title="Power / Lock Screen" onclick="sendAction('LOCK_SCREEN')"></div>
+
+                <div class="phone-screen">
+                    <div class="mirror-content" id="mirror-container">
+                        <div class="control-badge" id="control-badge" style="display:none;">
+                            <i class="fas fa-hand-pointer"></i> CONTROL ACTIVE
+                        </div>
+                        <div class="control-badge" id="skeleton-badge" style="display:none; top: 40px; border-color: var(--brand); color: var(--brand); box-shadow: 0 0 14px rgba(46, 204, 143, 0.4);">
+                            <i class="fas fa-cubes-stacked"></i> SKELETON ACTIVE
+                        </div>
+                        <div class="placeholder" id="placeholder">
+                            <i class="fas fa-video-slash" style="font-size:24px;"></i>
+                            <span>LIVE STREAM IDLE</span>
+                        </div>
+
+                        <img id="mirror-img" class="mirror-img" src="" alt="Mirror Feed">
+                        <canvas id="skeleton-canvas" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 35; display: none;"></canvas>
+                    </div>
+
+                    <div class="android-nav">
+                        <div class="nav-key" id="nav-btn-back" title="Back" onclick="sendNav('BACK', event)"><i class="fas fa-chevron-left"></i></div>
+                        <div class="nav-key" id="nav-btn-home" title="Home" onclick="sendNav('HOME', event)"><i class="far fa-circle"></i></div>
+                        <div class="nav-key" id="nav-btn-recent" title="Recent Apps" onclick="sendNav('RECENT', event)"><i class="fas fa-square-full" style="font-size:12px; opacity:0.6"></i></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Arrow Navigation & Scroll D-Pad Panel -->
+            <div class="side-nav-panel">
+                <div class="side-nav-header">
+                    <i class="fas fa-compass"></i>
+                    <span>ARROW CONTROLS</span>
+                </div>
+
+                <!-- D-Pad Directional Controller -->
+                <div class="dpad-container">
+                    <button class="dpad-btn dpad-up" id="dpad-up" onclick="sendDirection('UP', event)" title="Scroll Up (Arrow Up)">
+                        <i class="fas fa-chevron-up"></i>
+                    </button>
+                    <button class="dpad-btn dpad-left" id="dpad-left" onclick="sendDirection('LEFT', event)" title="Swipe Left (Arrow Left)">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button class="dpad-btn dpad-center" id="dpad-center" onclick="sendDirection('CENTER', event)" title="Center Tap / Click">
+                        <i class="fas fa-crosshairs"></i>
+                    </button>
+                    <button class="dpad-btn dpad-right" id="dpad-right" onclick="sendDirection('RIGHT', event)" title="Swipe Right (Arrow Right)">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="dpad-btn dpad-down" id="dpad-down" onclick="sendDirection('DOWN', event)" title="Scroll Down (Arrow Down)">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+
+                <!-- Quick Navigation / Scroll Actions Grid -->
+                <div class="quick-nav-grid">
+                    <button class="quick-nav-btn" id="btn-page-up" onclick="sendDirection('PAGE_UP', event)" title="Fast Scroll Up / Page Up">
+                        <i class="fas fa-angles-up"></i>
+                        <span>PAGE UP</span>
+                    </button>
+                    <button class="quick-nav-btn" id="btn-page-down" onclick="sendDirection('PAGE_DOWN', event)" title="Fast Scroll Down / Page Down">
+                        <i class="fas fa-angles-down"></i>
+                        <span>PAGE DOWN</span>
+                    </button>
+                    <button class="quick-nav-btn" id="btn-notif" onclick="sendNav('NOTIFICATIONS', event)" title="Pull Notification Shade">
+                        <i class="fas fa-bell"></i>
+                        <span>NOTIFS</span>
+                    </button>
+                    <button class="quick-nav-btn" id="btn-quick-settings" onclick="sendNav('QUICK_SETTINGS', event)" title="Pull Quick Settings">
+                        <i class="fas fa-sliders"></i>
+                        <span>SETTINGS</span>
+                    </button>
+                </div>
+
+                <!-- Keyboard Shortcuts Hint -->
+                <div class="keyboard-hint">
+                    <i class="fas fa-keyboard" style="color:var(--accent);"></i>
+                    <span>Keys: <kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&larr;</kbd> <kbd>&rarr;</kbd></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const deviceID = urlParams.get('id');
+        let isMirroring = false, lastTime = 0;
+        let controlEnabled = false;
+        let frameCount = 0;
+        let lastFpsTime = Date.now();
+        let currentFps = 0;
+
+        // Initialize Socket.io
+        const socket = io();
+        socket.on('connect', () => {
+            if (deviceID) {
+                socket.emit('join_device_room', { device_id: deviceID });
+            }
+        });
+
+        // Real-Time Binary Screen Frame Receiver
+        socket.on('screen_frame_relay', (data) => {
+            if (!isMirroring || !data) return;
+            const frameBuffer = data.frame;
+            if (!frameBuffer) return;
+
+            frameCount++;
+            const now = Date.now();
+            if (now - lastFpsTime >= 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                lastFpsTime = now;
+            }
+
+            const blob = new Blob([frameBuffer], { type: 'image/jpeg' });
+            const img = document.getElementById('mirror-img');
+            const oldUrl = img.src;
+            img.src = URL.createObjectURL(blob);
+            if (oldUrl && oldUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(oldUrl);
+            }
+            document.getElementById('placeholder').style.display = 'none';
+
+            const bat = data.battery || '--';
+            document.querySelector('.status-footer').innerHTML = `
+                <div class="live-dot" style="background: var(--brand)"></div>
+                FEED ACTIVE &bull; ${currentFps} FPS &bull; Bat: ${bat}%
+            `;
+        });
+
+        function showPopup(msg, isError = false) {
+            const toast = document.getElementById('smart-toast');
+            const msgEl = document.getElementById('toast-msg');
+            const icon = toast.querySelector('i');
+
+            msgEl.textContent = msg;
+            toast.style.borderColor = isError ? 'var(--danger)' : 'var(--brand)';
+            icon.className = isError ? 'fas fa-circle-exclamation' : 'fas fa-circle-check';
+            icon.style.color = isError ? 'var(--danger)' : 'var(--brand)';
+
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        function toggleControl(forceState) {
+            controlEnabled = forceState !== undefined ? forceState : !controlEnabled;
+            const btn = document.getElementById('control-btn');
+            const stateText = document.getElementById('control-state-text');
+            const badge = document.getElementById('control-badge');
+            const container = document.getElementById('mirror-container');
+
+            if (controlEnabled) {
+                btn.classList.add('active');
+                stateText.textContent = 'ON';
+                badge.style.display = 'flex';
+                container.classList.add('control-active');
+                showPopup("Remote Touch Control: ON");
+            } else {
+                btn.classList.remove('active');
+                stateText.textContent = 'OFF';
+                badge.style.display = 'none';
+                container.classList.remove('control-active');
+                showPopup("Remote Touch Control: OFF");
+            }
+        }
+
+        let skeletonEnabled = false;
+        let skeletonBlueprintMode = false;
+        let skeletonFetchTimer = null;
+
+        function toggleBlueprintMode(enabled) {
+            skeletonBlueprintMode = enabled;
+            if (skeletonEnabled) {
+                showPopup("Blueprint Mode: " + (enabled ? "ON" : "OFF"));
+            }
+        }
+
+        function toggleSkeletonView(forceState) {
+            skeletonEnabled = forceState !== undefined ? forceState : !skeletonEnabled;
+            const btn = document.getElementById('skeleton-btn');
+            const stateText = document.getElementById('skeleton-state-text');
+            const badge = document.getElementById('skeleton-badge');
+            const canvas = document.getElementById('skeleton-canvas');
+
+            if (skeletonEnabled) {
+                btn.classList.add('active-skeleton');
+                stateText.textContent = 'ON';
+                if (badge) badge.style.display = 'flex';
+                if (canvas) canvas.style.display = 'block';
+                showPopup("UI Skeleton View: ON (Accessibility)");
+                sendAction('START_SKELETON', true);
+                
+                if (skeletonFetchTimer) clearInterval(skeletonFetchTimer);
+                skeletonFetchTimer = setInterval(() => {
+                    if (skeletonEnabled && isMirroring && deviceID) {
+                        sendAction('GET_SKELETON', true);
+                    }
+                }, 1000);
+            } else {
+                btn.classList.remove('active-skeleton');
+                stateText.textContent = 'OFF';
+                if (badge) badge.style.display = 'none';
+                if (canvas) canvas.style.display = 'none';
+                showPopup("UI Skeleton View: OFF");
+                sendAction('STOP_SKELETON', true);
+                if (skeletonFetchTimer) {
+                    clearInterval(skeletonFetchTimer);
+                    skeletonFetchTimer = null;
+                }
+                clearSkeletonCanvas();
+            }
+        }
+
+        function clearSkeletonCanvas() {
+            const canvas = document.getElementById('skeleton-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        socket.on('ui_skeleton_frame_relay', (data) => {
+            if (!skeletonEnabled || !data || !data.skeleton) return;
+            renderSkeletonOverlay(data.skeleton);
+        });
+
+        function drawRoundRect(ctx, x, y, w, h, r) {
+            if (ctx.roundRect) {
+                ctx.beginPath();
+                ctx.roundRect(x, y, w, h, r);
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(x + r, y);
+                ctx.arcTo(x + w, y, x + w, y + h, r);
+                ctx.arcTo(x + w, y + h, x, y + h, r);
+                ctx.arcTo(x, y + h, x, y, r);
+                ctx.arcTo(x, y, x + w, y, r);
+                ctx.closePath();
+            }
+        }
+
+        function renderSkeletonOverlay(skeleton) {
+            const canvas = document.getElementById('skeleton-canvas');
+            const mirrorImg = document.getElementById('mirror-img');
+            const container = document.getElementById('mirror-container');
+            if (!canvas || !container || !mirrorImg) return;
+
+            const containerRect = container.getBoundingClientRect();
+            const canvasW = mirrorImg.clientWidth || containerRect.width;
+            const canvasH = mirrorImg.clientHeight || containerRect.height;
+
+            canvas.style.left = mirrorImg.offsetLeft + 'px';
+            canvas.style.top = mirrorImg.offsetTop + 'px';
+            canvas.style.width = canvasW + 'px';
+            canvas.style.height = canvasH + 'px';
+
+            canvas.width = canvasW;
+            canvas.height = canvasH;
+
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (skeletonBlueprintMode) {
+                ctx.fillStyle = '#08090d';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
+            }
+
+            const devW = (mirrorImg.naturalWidth > 0) ? mirrorImg.naturalWidth : (skeleton.screenWidth || 1080);
+            const devH = (mirrorImg.naturalHeight > 0) ? mirrorImg.naturalHeight : (skeleton.screenHeight || 2400);
+            const nodes = skeleton.nodes || [];
+
+            const scaleX = canvas.width / devW;
+            const scaleY = canvas.height / devH;
+
+            const typePriority = { 'container': 1, 'scroll': 2, 'image': 3, 'text': 4, 'switch': 5, 'input': 6, 'button': 7, 'clickable': 7 };
+            const sortedNodes = [...nodes].sort((a, b) => (typePriority[a.type] || 0) - (typePriority[b.type] || 0));
+
+            sortedNodes.forEach(node => {
+                const x = node.l * scaleX;
+                const y = node.t * scaleY;
+                const w = (node.r - node.l) * scaleX;
+                const h = (node.b - node.t) * scaleY;
+
+                if (w <= 2 || h <= 2) return;
+
+                ctx.save();
+                const labelText = node.txt || node.id || '';
+
+                if (node.type === 'button' || (node.clk && node.type !== 'input')) {
+                    const radius = Math.min(8, Math.min(w, h) / 2);
+                    drawRoundRect(ctx, x, y, w, h, radius);
+                    ctx.fillStyle = skeletonBlueprintMode ? 'rgba(46, 204, 143, 0.35)' : 'rgba(46, 204, 143, 0.22)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#2ECC8F';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    if (labelText) {
+                        ctx.font = 'bold 11px Inter, sans-serif';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const displayText = labelText.length > 24 ? labelText.substring(0, 22) + '…' : labelText;
+                        ctx.fillText(displayText, x + w / 2, y + h / 2);
+                    }
+                } else if (node.type === 'input' || node.edt) {
+                    const radius = Math.min(6, Math.min(w, h) / 2);
+                    drawRoundRect(ctx, x, y, w, h, radius);
+                    ctx.fillStyle = skeletonBlueprintMode ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.2)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#f59e0b';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    ctx.font = '600 10px Inter, monospace';
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    const displayText = labelText ? `[✏️ ${labelText}]` : '[✏️ Input Field]';
+                    ctx.fillText(displayText.substring(0, 28), x + 8, y + h / 2);
+                } else if (node.type === 'switch') {
+                    ctx.fillStyle = 'rgba(168, 85, 247, 0.25)';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = '#a855f7';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, w, h);
+
+                    if (labelText) {
+                        ctx.font = 'bold 10px sans-serif';
+                        ctx.fillStyle = '#e9d5ff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(labelText.substring(0, 18), x + w / 2, y + h / 2);
+                    }
+                } else if (node.type === 'text' && labelText) {
+                    ctx.fillStyle = skeletonBlueprintMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.45)';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = 'rgba(56, 189, 248, 0.7)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, w, h);
+
+                    ctx.font = '600 10px Inter, sans-serif';
+                    ctx.fillStyle = '#38bdf8';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(labelText.substring(0, 32), x + 4, y + 2);
+                } else if (node.type === 'image') {
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([3, 3]);
+                    ctx.strokeRect(x, y, w, h);
+
+                    if (w > 20 && h > 20) {
+                        ctx.font = '9px sans-serif';
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('🖼️', x + w / 2, y + h / 2);
+                    }
+                } else if (node.scr) {
+                    ctx.strokeStyle = 'rgba(34, 211, 238, 0.4)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([4, 4]);
+                    ctx.strokeRect(x, y, w, h);
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function createTouchRipple(x, y, isLongPress = false) {
+            const container = document.getElementById('mirror-container');
+            const ripple = document.createElement('div');
+            ripple.className = 'touch-ripple' + (isLongPress ? ' long-press' : '');
+            ripple.style.left = `${x}px`;
+            ripple.style.top = `${y}px`;
+            container.appendChild(ripple);
+            setTimeout(() => ripple.remove(), isLongPress ? 800 : 500);
+        }
+
+        // Directional Navigation & Scroll Handler
+        async function sendDirection(dir, event) {
+            if (!deviceID) {
+                showPopup("Device ID required", true);
+                return;
+            }
+
+            // Visual button press feedback
+            let btnEl = null;
+            if (event && event.currentTarget) {
+                btnEl = event.currentTarget;
+            } else {
+                const map = {
+                    'UP': 'dpad-up',
+                    'DOWN': 'dpad-down',
+                    'LEFT': 'dpad-left',
+                    'RIGHT': 'dpad-right',
+                    'CENTER': 'dpad-center',
+                    'PAGE_UP': 'btn-page-up',
+                    'PAGE_DOWN': 'btn-page-down'
+                };
+                if (map[dir]) btnEl = document.getElementById(map[dir]);
+            }
+            if (btnEl) {
+                btnEl.classList.add('pressed');
+                setTimeout(() => btnEl.classList.remove('pressed'), 220);
+            }
+
+            let actionCmd = "";
+            let label = "";
+
+            if (dir === 'UP') {
+                // Scroll UP: finger swipes down (from 30% to 75% height)
+                actionCmd = 'SWIPE:0.50:0.30:0.50:0.75:250';
+                label = 'Scroll UP (↑)';
+            } else if (dir === 'DOWN') {
+                // Scroll DOWN: finger swipes up (from 75% to 30% height)
+                actionCmd = 'SWIPE:0.50:0.75:0.50:0.30:250';
+                label = 'Scroll DOWN (↓)';
+            } else if (dir === 'LEFT') {
+                // Swipe Left (Next Screen): finger swipes from 82% to 18% width
+                actionCmd = 'SWIPE:0.82:0.50:0.18:0.50:250';
+                label = 'Swipe LEFT (←)';
+            } else if (dir === 'RIGHT') {
+                // Swipe Right (Prev Screen): finger swipes from 18% to 82% width
+                actionCmd = 'SWIPE:0.18:0.50:0.82:0.50:250';
+                label = 'Swipe RIGHT (→)';
+            } else if (dir === 'CENTER') {
+                actionCmd = 'CLICK:0.50:0.50';
+                label = 'Center Tap';
+            } else if (dir === 'PAGE_UP') {
+                actionCmd = 'SWIPE:0.50:0.15:0.50:0.85:200';
+                label = 'Fast Page UP';
+            } else if (dir === 'PAGE_DOWN') {
+                actionCmd = 'SWIPE:0.50:0.85:0.50:0.15:200';
+                label = 'Fast Page DOWN';
+            }
+
+            try {
+                await fetch(`/api/device/${deviceID}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: actionCmd })
+                });
+                showPopup(label + " Executed");
+            } catch(e) {
+                showPopup("Failed: " + label, true);
+            }
+        }
+
+        // Global Keyboard Arrow Navigation Listener
+        window.addEventListener('keydown', (e) => {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                sendDirection('UP');
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                sendDirection('DOWN');
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                sendDirection('LEFT');
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                sendDirection('RIGHT');
+            } else if (e.key === 'PageUp') {
+                e.preventDefault();
+                sendDirection('PAGE_UP');
+            } else if (e.key === 'PageDown') {
+                e.preventDefault();
+                sendDirection('PAGE_DOWN');
+            } else if (e.key === 'Escape') {
+                sendNav('BACK');
+            }
+        });
+
+        // Setup Touch / Click / Swipe Event Handlers on Mirror Feed
+        const mirrorContainer = document.getElementById('mirror-container');
+        const mirrorImg = document.getElementById('mirror-img');
+        let isPointerDown = false;
+        let startClientX = 0, startClientY = 0;
+        let startContainerX = 0, startContainerY = 0;
+        let startTime = 0;
+        let startMouseButton = 0;
+
+        mirrorContainer.addEventListener('contextmenu', (e) => {
+            if (controlEnabled && isMirroring) {
+                e.preventDefault();
+            }
+        });
+
+        mirrorContainer.addEventListener('mousedown', (e) => {
+            if (!controlEnabled || !isMirroring) return;
+            e.preventDefault();
+            isPointerDown = true;
+            startTime = Date.now();
+            startMouseButton = e.button;
+            const rect = mirrorImg.getBoundingClientRect();
+            startClientX = e.clientX;
+            startClientY = e.clientY;
+            startContainerX = e.clientX - rect.left;
+            startContainerY = e.clientY - rect.top;
+            createTouchRipple(startContainerX, startContainerY, startMouseButton === 2);
+        });
+
+        mirrorContainer.addEventListener('mouseup', async (e) => {
+            if (!isPointerDown || !controlEnabled || !isMirroring || !deviceID) {
+                isPointerDown = false;
+                return;
+            }
+            isPointerDown = false;
+            const mouseBtn = startMouseButton;
+            const rect = mirrorImg.getBoundingClientRect();
+            const endContainerX = e.clientX - rect.left;
+            const endContainerY = e.clientY - rect.top;
+            const duration = Date.now() - startTime;
+
+            const deltaX = e.clientX - startClientX;
+            const deltaY = e.clientY - startClientY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            const natW = mirrorImg.naturalWidth > 0 ? mirrorImg.naturalWidth : 1080;
+            const natH = mirrorImg.naturalHeight > 0 ? mirrorImg.naturalHeight : 2400;
+
+            if (distance < 15) {
+                const normX = Math.max(0, Math.min(1, endContainerX / rect.width));
+                const normY = Math.max(0, Math.min(1, endContainerY / rect.height));
+                const realX = Math.round(normX * natW);
+                const realY = Math.round(normY * natH);
+
+                if (mouseBtn === 2) {
+                    // Right Click -> Long Press / Long Click
+                    try {
+                        await fetch(`/api/device/${deviceID}/action`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: `LONG_CLICK:${realX}:${realY}:1000` })
+                        });
+                        showPopup(`Long Press sent at (${realX}, ${realY})`);
+                    } catch(err) {
+                        console.error("Long click send error:", err);
+                    }
+                } else {
+                    // Left Click / Tap Event
+                    try {
+                        await fetch(`/api/device/${deviceID}/action`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ action: `CLICK:${realX}:${realY}` })
+                        });
+                    } catch(err) {
+                        console.error("Click send error:", err);
+                    }
+                }
+            } else {
+                // Swipe / Drag / Scroll Event
+                createTouchRipple(endContainerX, endContainerY);
+                const normX1 = Math.max(0, Math.min(1, startContainerX / rect.width));
+                const normY1 = Math.max(0, Math.min(1, startContainerY / rect.height));
+                const normX2 = Math.max(0, Math.min(1, endContainerX / rect.width));
+                const normY2 = Math.max(0, Math.min(1, endContainerY / rect.height));
+
+                const realX1 = Math.round(normX1 * natW);
+                const realY1 = Math.round(normY1 * natH);
+                const realX2 = Math.round(normX2 * natW);
+                const realY2 = Math.round(normY2 * natH);
+                const swipeDuration = Math.min(Math.max(duration, 100), 800);
+
+                try {
+                    await fetch(`/api/device/${deviceID}/action`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: `SWIPE:${realX1}:${realY1}:${realX2}:${realY2}:${swipeDuration}` })
+                    });
+                } catch(err) {
+                    console.error("Swipe send error:", err);
+                }
+            }
+        });
+
+        async function sendNav(cmd, event) {
+            if (!deviceID) {
+                showPopup("Device not connected", true);
+                return;
+            }
+            const btn = event ? event.currentTarget : document.getElementById(`nav-btn-${cmd.toLowerCase()}`);
+            if (btn) {
+                btn.classList.add('pressed');
+                setTimeout(() => btn.classList.remove('pressed'), 250);
+            }
+            try {
+                await fetch(`/api/device/${deviceID}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: `NAV_${cmd}` })
+                });
+                showPopup(`Nav: ${cmd} Sent`);
+            } catch(e) {
+                showPopup(`Failed to send Nav: ${cmd}`, true);
+            }
+        }
+
+        async function sendAction(act, silent = false) {
+            if (!deviceID) {
+                if (!silent) showPopup("Device not connected", true);
+                return;
+            }
+            try {
+                await fetch(`/api/device/${deviceID}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: act })
+                });
+                if (!silent && !act.includes('SKELETON') && !act.includes('HEARTBEAT')) {
+                    showPopup("Action Sent: " + act);
+                }
+            } catch(e) {
+                if (!silent) showPopup("Action Failed: " + act, true);
+            }
+        }
+
+        function toggleControls(disable) {
+            document.getElementById('start-btn').disabled = disable;
+            document.getElementById('quality-val').disabled = disable;
+            document.getElementById('fps-val').disabled = disable;
+        }
+
+        // ── METHOD 1: HEARTBEAT PING (WATCHDOG REFRESH) ──
+        let heartbeatTimer = null;
+        function startHeartbeat() {
+            if (heartbeatTimer) clearInterval(heartbeatTimer);
+            heartbeatTimer = setInterval(() => {
+                if (!isMirroring || !deviceID) return;
+                fetch(`/api/device/${deviceID}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'HEARTBEAT:MIRROR' })
+                }).catch(() => {});
+            }, 4000);
+        }
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
+
+        // ── METHOD 2: TAB CLOSE / PAGE HIDE AUTO-STOP ──
+        function sendBeaconStop() {
+            if (!isMirroring || !deviceID) return;
+            try {
+                fetch(`/api/device/${deviceID}/action`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'STOP_MIRROR' }),
+                    keepalive: true
+                });
+            } catch (e) {}
+        }
+        window.addEventListener('beforeunload', sendBeaconStop);
+        window.addEventListener('pagehide', sendBeaconStop);
+
+        // ── METHOD 4: IDLE / INACTIVITY AUTO-STOP ──
+        let lastUserActivity = Date.now();
+        let idleWarningTimer = null;
+        let idleCountdownSec = 15;
+        let isIdleWarningActive = false;
+
+        function resetUserActivity() {
+            lastUserActivity = Date.now();
+            if (isIdleWarningActive) {
+                isIdleWarningActive = false;
+                const alertEl = document.getElementById('idle-alert');
+                if (alertEl) alertEl.classList.remove('show');
+                if (idleWarningTimer) {
+                    clearInterval(idleWarningTimer);
+                    idleWarningTimer = null;
+                }
+            }
+        }
+
+        ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+            window.addEventListener(evt, resetUserActivity, { passive: true });
+        });
+
+        setInterval(() => {
+            if (!isMirroring) return;
+            const idleTime = Date.now() - lastUserActivity;
+            // 3 minutes (180000ms) of inactivity
+            if (idleTime >= 180000 && !isIdleWarningActive) {
+                isIdleWarningActive = true;
+                idleCountdownSec = 15;
+                const countdownEl = document.getElementById('idle-countdown');
+                const alertEl = document.getElementById('idle-alert');
+                if (countdownEl) countdownEl.textContent = idleCountdownSec;
+                if (alertEl) alertEl.classList.add('show');
+
+                if (idleWarningTimer) clearInterval(idleWarningTimer);
+                idleWarningTimer = setInterval(() => {
+                    idleCountdownSec--;
+                    if (countdownEl) countdownEl.textContent = idleCountdownSec;
+                    if (idleCountdownSec <= 0) {
+                        clearInterval(idleWarningTimer);
+                        idleWarningTimer = null;
+                        if (alertEl) alertEl.classList.remove('show');
+                        isIdleWarningActive = false;
+                        // Auto-stop stream
+                        if (isMirroring) {
+                            document.getElementById('stop-btn').click();
+                            showPopup("Mirror auto-stopped due to inactivity (3m)", true);
+                        }
+                    }
+                }, 1000);
+            }
+        }, 2000);
+
+        document.getElementById('start-btn').onclick = async () => {
+            if (!deviceID) return alert("Device ID required");
+            const q = document.getElementById('quality-val').value;
+            const fps = document.getElementById('fps-val').value;
+
+            isMirroring = true;
+            resetUserActivity();
+            toggleControls(true);
+            document.getElementById('stop-btn').disabled = false;
+            startHeartbeat();
+
+            // Stream continuous indefinitely (0 = unconstrained)
+            await fetch(`/api/device/${deviceID}/action`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: `START_MIRROR:0:${q}:${fps}` })
+            });
+            showPopup("Continuous Live Mirroring Started");
+        };
+
+        document.getElementById('stop-btn').onclick = async () => {
+            isMirroring = false;
+            stopHeartbeat();
+            resetUserActivity();
+            toggleControls(false);
+            document.getElementById('stop-btn').disabled = true;
+            document.getElementById('placeholder').style.display = 'flex';
+            await fetch(`/api/device/${deviceID}/action`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'STOP_MIRROR' })
+            });
+            showPopup("Mirror Pipeline Terminated");
+        };
+    </script>
+</body>
+</html>

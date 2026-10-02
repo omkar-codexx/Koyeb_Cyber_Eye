@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geo-Fencing | CyberEye</title>
+
+  <!-- Google Fonts & Styling libraries -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Leaflet Map CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Import local socket.io client to prevent CDN network block issues -->
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    /* Reset and Core Variables */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    :root {
+      --bg-light: #ffffff;
+      --border-color: #e2e8f0;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --green-accent: #22c55e;
+      --red-accent: #ef4444;
+      --font-main: 'Space Grotesk', sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: var(--font-main);
+      background-color: #f8fafc;
+      color: var(--text-main);
+      display: flex;
+    }
+
+    /* Left Sidebar - Matches Image 2 Layout */
+    .sidebar {
+      width: 340px;
+      height: 100%;
+      background: var(--bg-light);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      box-shadow: 4px 0 20px rgba(0, 0, 0, 0.03);
+    }
+
+    /* Top form header/section */
+    .sidebar-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 15px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .form-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .input-field {
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-family: var(--font-main);
+      font-size: 12px;
+      outline: none;
+      width: 100%;
+      background: #f8fafc;
+      color: var(--text-main);
+    }
+
+    /* Segmented switch selector */
+    .segmented-control {
+      background: #f1f5f9;
+      padding: 2px;
+      border-radius: 8px;
+      display: flex;
+      gap: 2px;
+    }
+
+    .segment-btn {
+      flex: 1;
+      padding: 6px;
+      font-size: 10.5px;
+      border-radius: 6px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-family: var(--font-main);
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .segment-btn.active {
+      background: #ffffff;
+      color: var(--text-main);
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    }
+
+    .action-btn {
+      background: #0f172a;
+      border: none;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: var(--font-main);
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 5px;
+      transition: background 0.2s;
+    }
+    
+    .action-btn:hover {
+      background: #1e293b;
+    }
+
+    .action-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      background: #cbd5e1;
+    }
+
+    /* Scrollable Active Geofences List - Matches Image 2 style exactly */
+    .geofence-list-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .fence-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      position: relative;
+    }
+
+    .fence-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .fence-icon-wrap {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .fence-icon-wrap.allowed {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--green-accent);
+      border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+
+    .fence-icon-wrap.restricted {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--red-accent);
+      border: 1px solid rgba(239, 68, 68, 0.2);
+    }
+
+    .fence-details {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .fence-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .fence-type-label {
+      font-size: 10.5px;
+      color: var(--text-muted);
+    }
+
+    .fence-delete-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+
+    .fence-delete-btn:hover {
+      color: var(--red-accent);
+    }
+
+    /* Transition Logs List - Matches Image 2 */
+    .fence-logs {
+      list-style: none;
+      padding-left: 44px; /* Align with header text */
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .log-item {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .log-item span {
+      font-family: var(--font-main);
+    }
+
+    .log-action {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .log-action.enters {
+      color: var(--green-accent);
+    }
+
+    .log-action.leaves {
+      color: var(--red-accent);
+    }
+
+    /* Map - occupying the rest of the screen */
+    .map-wrapper {
+      flex: 1;
+      height: 100%;
+      position: relative;
+    }
+
+    #mapContainer {
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* Toast notification */
+    .toast-notification {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 10px 18px;
+      z-index: 1000;
+      opacity: 0;
+      transform: translateY(15px);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+      color: #fff;
+      font-size: 11.5px;
+    }
+    
+    .toast-notification.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Alert Overlay Warning Banner */
+    .alert-banner {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(239, 68, 68, 0.95);
+      border: 1.5px solid var(--red-accent);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      animation: bannerAlert 1.5s infinite alternate;
+    }
+
+    .alert-banner.allowed-alert {
+      background: rgba(245, 158, 11, 0.95);
+      border-color: #f59e0b;
+      box-shadow: 0 10px 25px rgba(245, 158, 11, 0.4);
+    }
+
+    @keyframes bannerAlert {
+      from { transform: translateX(-50%) scale(1); }
+      to { transform: translateX(-50%) scale(1.03); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Left Sidebar (Contains add form and active list) -->
+  <div class="sidebar">
+    
+    <!-- Top Configuration section -->
+    <div class="sidebar-section">
+      <div class="section-title">CREATE GEOFENCE ZONE</div>
+      <div class="tracker-controls">
+        
+        <div class="form-group">
+          <span class="form-label">FENCE TYPE</span>
+          <div class="segmented-control">
+            <button class="segment-btn active" id="typeAllowedBtn">Allowed</button>
+            <button class="segment-btn" id="typeRestrictedBtn">Restricted</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <span class="form-label">RADIUS: <span id="radiusLabel" style="color:var(--text-main); font-weight:700;">200</span> METERS</span>
+          <input type="range" id="geoFenceRadius" min="50" max="1000" step="50" value="200" style="width:100%; accent-color:#0f172a; cursor:pointer;">
+        </div>
+
+        <div style="font-size:11px; color:#64748b; margin-top: 10px; margin-bottom: 12px; font-family: var(--font-main);" id="coordsLabel">
+          Click on map to select center
+        </div>
+
+        <button class="action-btn" id="addZoneBtn" disabled>ADD ZONE</button>
+
+      </div>
+    </div>
+
+    <!-- Bottom Scrollable Active List -->
+    <div class="geofence-list-container">
+      <div class="section-title" style="margin-bottom: 5px;">ACTIVE GEOFENCES</div>
+      <div id="fencesContainer" style="display:flex; flex-direction:column; gap:16px;">
+        <!-- Populated via Javascript -->
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right Map View -->
+  <div class="map-wrapper">
+    <div id="mapContainer"></div>
+  </div>
+
+  <!-- Toast Notification element -->
+  <div id="toast" class="toast-notification">
+    <span id="toastMsg"></span>
+  </div>
+
+  <script>
+    // Toast Notification helper
+    const toastEl = document.getElementById('toast');
+    const toastMsgEl = document.getElementById('toastMsg');
+    let toastTimeout = null;
+
+    function showToast(msg) {
+        if (!toastMsgEl || !toastEl) return;
+        toastMsgEl.innerText = msg;
+        toastEl.classList.add('visible');
+        if(toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toastEl.classList.remove('visible');
+        }, 3000);
+    }
+
+    // Siren alarm synthesizer
+    let audioCtx = null;
+    let alarmInterval = null;
+
+    function playSiren() {
+        if (alarmInterval) return;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let state = false;
+            alarmInterval = setInterval(() => {
+                if (!audioCtx) return;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(state ? 880 : 580, audioCtx.currentTime);
+                state = !state;
+                gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.45);
+            }, 500);
+            setTimeout(stopSiren, 5000);
+        } catch (e) {
+            console.error("Audio error", e);
+        }
+    }
+
+    // Leaflet map config
+    let map = null;
+    let satelliteLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '&copy; Google'
+    });
+    // Standard default bright Google street map layer
+    let streetLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '&copy; Google'
+    });
+
+    function getURLParams() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('id') || urlParams.get('device_id');
+    }
+    
+    const deviceId = getURLParams();
+
+    // Geofences variables
+    let geofences = [];
+    let geofenceEvents = [];
+    let geofenceCircles = {};
+    let tempCenter = null;
+    let tempCircle = null;
+    let lastLocationMarker = null;
+
+    // Initialize Map safely
+    function initMap(lat, lng) {
+      if (!map) {
+        const container = document.getElementById('mapContainer');
+        if (!container) return;
+        
+        map = L.map('mapContainer', {
+          zoomControl: true,
+          layers: [streetLayer]
+        }).setView([lat, lng], 13);
+
+        map.on('click', function(e) {
+            const clickLat = e.latlng.lat;
+            const clickLng = e.latlng.lng;
+            tempCenter = { lat: clickLat, lng: clickLng };
+            
+            const coordsLabel = document.getElementById('coordsLabel');
+            if (coordsLabel) coordsLabel.innerText = `${clickLat.toFixed(5)}, ${clickLng.toFixed(5)}`;
+            const addZoneBtn = document.getElementById('addZoneBtn');
+            if (addZoneBtn) addZoneBtn.disabled = false;
+            
+            if (tempCircle) {
+                map.removeLayer(tempCircle);
+            }
+            
+            const geoFenceRadius = document.getElementById('geoFenceRadius');
+            const typeAllowedBtn = document.getElementById('typeAllowedBtn');
+            const radius = geoFenceRadius ? parseInt(geoFenceRadius.value) : 200;
+            const type = (typeAllowedBtn && typeAllowedBtn.classList.contains('active')) ? 'allowed' : 'restricted';
+            const color = type === 'allowed' ? '#22c55e' : '#ef4444';
+            
+            tempCircle = L.circle([clickLat, clickLng], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.15,
+                weight: 2,
+                dashArray: '4, 4',
+                radius: radius
+            }).addTo(map);
+        });
+      } else {
+        map.setView([lat, lng]);
+      }
+    }
+
+    function updateTempCircleStyle() {
+        if (!tempCircle) return;
+        const typeAllowedBtn = document.getElementById('typeAllowedBtn');
+        const type = (typeAllowedBtn && typeAllowedBtn.classList.contains('active')) ? 'allowed' : 'restricted';
+        const color = type === 'allowed' ? '#22c55e' : '#ef4444';
+        tempCircle.setStyle({ color: color, fillColor: color });
+    }
+
+    // Initialize safely when DOM is ready
+    window.addEventListener('DOMContentLoaded', () => {
+        // Initialize map immediately
+        initMap(20.5937, 78.9629);
+
+        // Bind switch button clicks
+        const typeAllowedBtn = document.getElementById('typeAllowedBtn');
+        const typeRestrictedBtn = document.getElementById('typeRestrictedBtn');
+        const geoFenceRadius = document.getElementById('geoFenceRadius');
+        const radiusLabel = document.getElementById('radiusLabel');
+
+        if (typeAllowedBtn) {
+            typeAllowedBtn.addEventListener('click', () => {
+                typeAllowedBtn.classList.add('active');
+                if (typeRestrictedBtn) typeRestrictedBtn.classList.remove('active');
+                updateTempCircleStyle();
+            });
+        }
+
+        if (typeRestrictedBtn) {
+            typeRestrictedBtn.addEventListener('click', () => {
+                typeRestrictedBtn.classList.add('active');
+                if (typeAllowedBtn) typeAllowedBtn.classList.remove('active');
+                updateTempCircleStyle();
+            });
+        }
+
+        if (geoFenceRadius) {
+            geoFenceRadius.addEventListener('input', (e) => {
+                const rad = parseInt(e.target.value);
+                if (radiusLabel) radiusLabel.innerText = rad;
+                if (tempCircle) {
+                    tempCircle.setRadius(rad);
+                }
+            });
+        }
+
+        // Add Zone save handler
+        const addZoneBtn = document.getElementById('addZoneBtn');
+        if (addZoneBtn) {
+            addZoneBtn.addEventListener('click', async () => {
+                if (!deviceId || !tempCenter) return;
+                
+                const radius = geoFenceRadius ? parseInt(geoFenceRadius.value) : 200;
+                const type = (typeAllowedBtn && typeAllowedBtn.classList.contains('active')) ? 'allowed' : 'restricted';
+                // Automatically generate name based on type
+                const name = type === 'allowed' ? 'Allowed Zone' : 'Restricted Zone';
+                
+                showToast("Saving Geofence...");
+                try {
+                    const resp = await fetch(`/api/device/${deviceId}/geofence/add`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            lat: tempCenter.lat,
+                            lng: tempCenter.lng,
+                            radius: radius,
+                            name: name,
+                            type: type
+                        })
+                    });
+                    if (resp.ok) {
+                        showToast("Geofence saved successfully!");
+                        addZoneBtn.disabled = true;
+                        const coordsLabel = document.getElementById('coordsLabel');
+                        if (coordsLabel) coordsLabel.innerText = 'Click on map to select center';
+                        if (tempCircle) {
+                            map.removeLayer(tempCircle);
+                            tempCircle = null;
+                        }
+                        tempCenter = null;
+                        loadGeofencesData();
+                    } else {
+                        showToast("Failed to save geofence.");
+                    }
+                } catch(err) {
+                    console.error(err);
+                    showToast("Connection error.");
+                }
+            });
+        }
+
+        // Socket.io integration inside try-catch to prevent ReferenceError from breaking the page
+        try {
+            if (typeof io !== 'undefined') {
+                const socket = io();
+
+                socket.on('connect', () => {
+                  if (deviceId) {
+                    socket.emit('join_device_room', { device_id: deviceId });
+                    console.log("[Socket.io] Joined device room:", deviceId);
+                  }
+                });
+
+                socket.on('geofence_alert', (data) => {
+                  if (data.device_id === deviceId) {
+                    showAlertBanner(data.name, data.type, data.message);
+                    loadGeofencesData();
+                  }
+                });
+
+                socket.on('location_update', (data) => {
+                    if (data.device_id === deviceId) {
+                        loadGeofencesData();
+                    }
+                });
+            } else {
+                console.warn("Socket.io library not loaded. Falling back to HTTP polling.");
+            }
+        } catch (socketErr) {
+            console.error("Socket initialization failed:", socketErr);
+        }
+
+        // Load data initially
+        loadGeofencesData();
+
+        // Polling fallback to update geofences even if websocket connection is lost/fails
+        setInterval(loadGeofencesData, 5000);
+
+        // Confirm Modal event listeners
+        const cancelDeleteBtn = document.getElementById('cancelDeleteBtn');
+        const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+        const confirmModal = document.getElementById('confirmModal');
+
+        if (cancelDeleteBtn && confirmModal) {
+            cancelDeleteBtn.addEventListener('click', () => {
+                confirmModal.style.opacity = '0';
+                confirmModal.style.pointerEvents = 'none';
+                fenceIdToDelete = null;
+            });
+        }
+
+        if (confirmDeleteBtn && confirmModal) {
+            confirmDeleteBtn.addEventListener('click', async () => {
+                if (!deviceId || !fenceIdToDelete) return;
+                
+                confirmModal.style.opacity = '0';
+                confirmModal.style.pointerEvents = 'none';
+                const targetId = fenceIdToDelete;
+                fenceIdToDelete = null;
+
+                showToast("Deleting Geofence...");
+                try {
+                    const resp = await fetch(`/api/device/${deviceId}/geofence/delete/${targetId}`, {
+                        method: 'POST'
+                    });
+                    if (resp.ok) {
+                        showToast("Geofence deleted successfully!");
+                        loadGeofencesData();
+                    } else {
+                        showToast("Error deleting geofence.");
+                    }
+                } catch(e) {
+                    console.error(e);
+                    showToast("Connection error.");
+                }
+            });
+        }
+    });
+
+    let fenceIdToDelete = null;
+    window.deleteGeofence = function(fenceId) {
+        fenceIdToDelete = fenceId;
+        const confirmModal = document.getElementById('confirmModal');
+        if (confirmModal) {
+            confirmModal.style.opacity = '1';
+            confirmModal.style.pointerEvents = 'auto';
+        }
+    }
+
+    // Render circles on map (Allowed Green, Restricted Red)
+    function renderGeofencesOnMap() {
+        if (!map) return;
+        
+        for (let id in geofenceCircles) {
+            map.removeLayer(geofenceCircles[id]);
+        }
+        geofenceCircles = {};
+        
+        geofences.forEach(fence => {
+            const color = fence.type === 'allowed' ? '#22c55e' : '#ef4444';
+            const circle = L.circle([fence.lat, fence.lng], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.12,
+                weight: 2,
+                radius: fence.radius
+            }).addTo(map);
+            
+            circle.bindTooltip(`<strong>${fence.name}</strong> (${fence.type.toUpperCase()})<br>Radius: ${fence.radius}m`, {
+                permanent: false,
+                direction: 'top'
+            });
+            
+            geofenceCircles[fence.id] = circle;
+        });
+    }
+
+    // Render clean lists with transition logs - Matches Image 2 styling
+    function renderGeofencesAndLogs() {
+        const container = document.getElementById('fencesContainer');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        if (geofences.length === 0) {
+            container.innerHTML = `<div style="font-size:11.5px; color:var(--text-muted); text-align:center; padding:10px;">No active geofences configured.</div>`;
+            return;
+        }
+        
+        geofences.forEach(fence => {
+            const card = document.createElement('div');
+            card.className = 'fence-card';
+            
+            const isAllowed = fence.type === 'allowed';
+            const colorClass = isAllowed ? 'allowed' : 'restricted';
+            const iconHtml = isAllowed 
+                ? '<i class="fa-regular fa-square-check" style="font-size:16px;"></i>' 
+                : '<i class="fa-regular fa-circle-xmark" style="font-size:16px;"></i>';
+            
+            // Build transition logs list under this geofence
+            const fenceEvents = geofenceEvents.filter(ev => ev.fence_id === fence.id);
+            let logsHtml = '';
+            
+            if (fenceEvents.length > 0) {
+                logsHtml = '<ul class="fence-logs">';
+                fenceEvents.forEach(ev => {
+                    const enters = ev.event === 'Enters';
+                    const iconArrow = enters 
+                        ? '<span class="log-action enters"><i class="fa-solid fa-arrow-down-long" style="font-size:9.5px;"></i> Enters</span>'
+                        : '<span class="log-action leaves"><i class="fa-solid fa-arrow-up-long" style="font-size:9.5px;"></i> Leaves</span>';
+                        
+                    logsHtml += `
+                        <li class="log-item">
+                            <span>${ev.time}</span>
+                            ${iconArrow}
+                        </li>
+                    `;
+                });
+                logsHtml += '</ul>';
+            } else {
+                logsHtml = `<div style="padding-left:44px; font-size:10px; color:var(--text-muted); font-style:italic;">No recorded events yet.</div>`;
+            }
+
+            card.innerHTML = `
+                <div class="fence-header">
+                    <div class="fence-icon-wrap ${colorClass}">
+                        ${iconHtml}
+                    </div>
+                    <div class="fence-details">
+                        <span class="fence-name">${fence.name}</span>
+                        <span class="fence-type-label">${isAllowed ? 'Allowed' : 'Restricted'}</span>
+                    </div>
+                    <button class="fence-delete-btn" onclick="deleteGeofence('${fence.id}')" title="Delete fence">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+                ${logsHtml}
+            `;
+            
+            container.appendChild(card);
+        });
+    }
+
+    // Load setup configurations
+    async function loadGeofencesData() {
+        if (!deviceId) return;
+        try {
+            const resp = await fetch(`/api/device/${deviceId}/data`);
+            if (resp.ok) {
+                const data = await resp.json();
+                
+                const settings = data.settings || {};
+                geofences = settings.get_geofences || settings.geofences || [];
+                geofenceEvents = data.geofence_events || [];
+                
+                let mapCenter = [20.5937, 78.9629];
+                let hasLastLocation = false;
+                
+                if (data.location && data.location.lat && data.location.lng) {
+                    mapCenter = [data.location.lat, data.location.lng];
+                    hasLastLocation = true;
+                } else if (geofences.length > 0) {
+                    mapCenter = [geofences[0].lat, geofences[0].lng];
+                }
+                
+                // Pan/Set map center
+                map.setView(mapCenter, 15); // Zoomed in closer to last location
+                
+                // Render last location marker
+                if (hasLastLocation) {
+                    if (lastLocationMarker) {
+                        map.removeLayer(lastLocationMarker);
+                    }
+                    
+                    const personIcon = L.divIcon({
+                        html: '<div style="background-color: #3b82f6; width: 18px; height: 18px; border-radius: 50%; border: 3px solid #ffffff; box-shadow: 0 0 10px rgba(59, 130, 246, 0.85); display: flex; align-items: center; justify-content: center;"><i class="fa-solid fa-person" style="font-size: 10px; color: #ffffff;"></i></div>',
+                        className: 'user-loc-marker',
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
+                    });
+                    
+                    lastLocationMarker = L.marker(mapCenter, { icon: personIcon }).addTo(map);
+                    lastLocationMarker.bindTooltip("<strong>User's Last Location</strong>", { permanent: false, direction: 'top' });
+                }
+                
+                renderGeofencesOnMap();
+                renderGeofencesAndLogs();
+            }
+        } catch(e) {
+            console.error("Error loading geofences list:", e);
+        }
+    }
+  </script>
+  <!-- Smart Confirmation Modal -->
+  <div id="confirmModal" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 10000; opacity: 0; pointer-events: none; transition: opacity 0.2s ease;">
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; width: 280px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); display: flex; flex-direction: column; gap: 15px; text-align: center;">
+      <div style="width: 40px; height: 40px; background: rgba(239, 68, 68, 0.1); color: #ef4444; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto; font-size: 18px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div>
+        <h4 style="font-size: 13px; font-weight: 700; color: #1e293b; text-transform: uppercase; margin-bottom: 5px;">Delete Geofence?</h4>
+        <p style="font-size: 11px; color: #64748b; line-height: 1.4;">This action cannot be undone. Are you sure you want to delete this zone?</p>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="cancelDeleteBtn" style="flex: 1; padding: 8px; border: 1px solid #e2e8f0; border-radius: 6px; background: none; font-size: 11px; font-weight: 600; color: #64748b; cursor: pointer; font-family: var(--font-main);">Cancel</button>
+        <button id="confirmDeleteBtn" style="flex: 1; padding: 8px; border: none; border-radius: 6px; background: #ef4444; font-size: 11px; font-weight: 600; color: #fff; cursor: pointer; font-family: var(--font-main);">Delete</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
