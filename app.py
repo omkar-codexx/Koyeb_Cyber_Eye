@@ -1583,7 +1583,7 @@ def stream_media(device_id, filename):
         return "Unauthorized", 403
     file_path = os.path.join("media", device_id, filename)
     if os.path.exists(file_path):
-        return send_file(file_path)
+        return send_file(file_path, conditional=True)
     return "Not Found", 404
 
 @app.route('/api/device/<device_id>/file/<folder>/<path:filename>')
@@ -1593,11 +1593,12 @@ def serve_device_file(device_id, folder, filename):
         return "Unauthorized", 403
     path1 = os.path.join("data", device_id, folder, filename)
     if os.path.exists(path1):
-        return send_file(path1)
+        return send_file(path1, conditional=True)
     path2 = os.path.join("media", device_id, filename)
     if os.path.exists(path2):
-        return send_file(path2)
+        return send_file(path2, conditional=True)
     return "Not Found", 404
+
 
 @app.route('/api/device/<device_id>/upload_media', methods=['POST'])
 def api_device_upload_media(device_id):
